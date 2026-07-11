@@ -38,9 +38,11 @@ class mod_quizquest_mod_form extends moodleform_mod {
      * Define the form elements.
      */
     public function definition() {
-        global $COURSE;
+        global $COURSE, $PAGE;
 
         $mform = $this->_form;
+
+        $PAGE->requires->js_call_amd('mod_quizquest/bankpicker', 'init');
 
         $mform->addElement('header', 'general', get_string('general', 'form'));
 
@@ -70,14 +72,46 @@ class mod_quizquest_mod_form extends moodleform_mod {
 
         $mform->addElement('header', 'gamesettings', get_string('gamesettings', 'mod_quizquest'));
 
+        $questionbankoptions = $this->get_question_bank_options();
+
+        $defaultbankcontextid = 0;
+        if ($this->current->instance && !empty($this->current->questioncategoryid)) {
+            $parts = explode(',', (string) $this->current->questioncategoryid);
+            $defaultbankcontextid = (int) ($parts[1] ?? 0);
+        }
+        if (!$defaultbankcontextid) {
+            $candidates = $questionbankoptions;
+            unset($candidates[0]);
+            $firstkey = array_key_first($candidates);
+            $defaultbankcontextid = $firstkey !== null ? (int) $firstkey : 0;
+        }
+
         $mform->addElement(
-            'selectgroups',
+            'select',
+            'questionbank',
+            get_string('questionbank', 'mod_quizquest'),
+            $questionbankoptions,
+            ['data-courseid' => $COURSE->id]
+        );
+        $mform->addHelpButton('questionbank', 'questionbank', 'mod_quizquest');
+        $mform->addRule('questionbank', null, 'required', null, 'client');
+        $mform->setDefault('questionbank', $defaultbankcontextid);
+
+        // The default bank's categories are rendered server-side so the form works without
+        // JS; amd/src/bankpicker.js repopulates this select when the bank choice changes.
+        $categoryoptions = $defaultbankcontextid ? $this->get_category_options_for_context($defaultbankcontextid) : [];
+        $mform->addElement(
+            'select',
             'questioncategoryid',
             get_string('questioncategory', 'mod_quizquest'),
-            $this->get_question_category_options()
+            $categoryoptions
         );
         $mform->addHelpButton('questioncategoryid', 'questioncategory', 'mod_quizquest');
         $mform->addRule('questioncategoryid', null, 'required', null, 'client');
+
+        $mform->addElement('selectyesno', 'includesubcategories', get_string('includesubcategories', 'mod_quizquest'));
+        $mform->setDefault('includesubcategories', 0);
+        $mform->addHelpButton('includesubcategories', 'includesubcategories', 'mod_quizquest');
 
         $mform->addElement('text', 'steps', get_string('steps', 'mod_quizquest'), ['size' => 4]);
         $mform->setType('steps', PARAM_INT);
@@ -299,6 +333,8 @@ class mod_quizquest_mod_form extends moodleform_mod {
      * @return array of errors keyed by element name
      */
     public function validation($data, $files) {
+        global $COURSE;
+
         $errors = parent::validation($data, $files);
 
         $steps = (int) ($data['steps'] ?? 0);
@@ -306,10 +342,22 @@ class mod_quizquest_mod_form extends moodleform_mod {
             $errors['steps'] = get_string('error:stepsinvalid', 'mod_quizquest');
         }
 
-        // The chosen category must contain at least one question this activity can ask.
-        $categoryid = \mod_quizquest\question_picker::parse_category($data['questioncategoryid'] ?? '');
-        if (!$categoryid || !\mod_quizquest\question_picker::get_eligible_question_ids($categoryid)) {
+        // Reject a category from a bank this user isn't authorised to use — the client-side
+        // choices aren't authoritative, so re-check server-side against the same source the
+        // form options were built from.
+        $rawcategory = (string) ($data['questioncategoryid'] ?? '');
+        $categoryid = \mod_quizquest\question_picker::parse_category($rawcategory);
+        $bankcontextid = (int) (explode(',', $rawcategory)[1] ?? 0);
+        $allowedbanks = \mod_quizquest\question_bank_lister::get_available_banks($COURSE->id);
+
+        if (!$categoryid || !array_key_exists($bankcontextid, $allowedbanks)) {
             $errors['questioncategoryid'] = get_string('error:noquestionsincategory', 'mod_quizquest');
+        } else {
+            // The chosen category must contain at least one question this activity can ask.
+            $includesubcategories = !empty($data['includesubcategories']);
+            if (!\mod_quizquest\question_picker::get_eligible_question_ids($categoryid, $includesubcategories)) {
+                $errors['questioncategoryid'] = get_string('error:noquestionsincategory', 'mod_quizquest');
+            }
         }
 
         // Check open and close times are consistent.
@@ -350,21 +398,42 @@ class mod_quizquest_mod_form extends moodleform_mod {
     }
 
     /**
-     * Build the grouped question category options for every question bank visible in this course.
+     * Build the question bank options: the legacy course-context category, any question
+     * bank activities in this course, and any banks shared to other courses or site-wide
+     * that the current user is authorised to use.
      *
-     * Values are stored as "categoryid,contextid" (the same convention used by
-     * qbank_managecategories::question_category_options()).
-     *
-     * @return array grouped select options
+     * @return array<int, string> select options, keyed by context id, with a leading prompt
      */
-    protected function get_question_category_options(): array {
+    protected function get_question_bank_options(): array {
         global $COURSE;
 
-        $contexts = [context_course::instance($COURSE->id)];
-        foreach (get_fast_modinfo($COURSE->id)->get_instances_of('qbank') as $cm) {
-            $contexts[] = context_module::instance($cm->id);
+        return [0 => get_string('choosedots')] + \mod_quizquest\question_bank_lister::get_available_banks($COURSE->id);
+    }
+
+    /**
+     * Build the category options for a single question bank context.
+     *
+     * Values are stored as "categoryid,contextid" (the same convention used by
+     * qbank_managecategories::question_category_options()), flattened from its
+     * per-context grouping since only one context is ever passed in here.
+     *
+     * @param int $contextid
+     * @return array<string, string> select options
+     */
+    protected function get_category_options_for_context(int $contextid): array {
+        $context = \context::instance_by_id($contextid, IGNORE_MISSING);
+        if (!$context) {
+            return [];
         }
 
-        return \qbank_managecategories\helper::question_category_options($contexts, false, 0, false, -1, true);
+        $grouped = \qbank_managecategories\helper::question_category_options([$context], false, 0, false, -1, true);
+
+        $flat = [];
+        foreach ($grouped as $group) {
+            foreach ($group as $value => $label) {
+                $flat[$value] = $label;
+            }
+        }
+        return $flat;
     }
 }

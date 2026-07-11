@@ -109,5 +109,25 @@ function xmldb_quizquest_upgrade($oldversion) {
         upgrade_mod_savepoint(true, 2026071104, 'quizquest');
     }
 
+    if ($oldversion < 2026071105) {
+        $table = new xmldb_table('quizquest');
+
+        $field = new xmldb_field(
+            'includesubcategories',
+            XMLDB_TYPE_INTEGER,
+            '2',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'questioncategoryid'
+        );
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026071105, 'quizquest');
+    }
+
     return true;
 }

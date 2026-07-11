@@ -41,20 +41,30 @@ class question_picker {
     }
 
     /**
-     * Returns the ids of all questions in a category this activity can ask.
+     * Returns the ids of all questions in a category (and optionally its subcategories)
+     * this activity can ask.
      *
      * Eligible questions are the latest ready version of each bank entry with
      * qtype multichoice (single-answer only) or shortanswer.
      *
-     * @param int $categoryid Question category id
+     * @param int  $categoryid           Question category id
+     * @param bool $includesubcategories Whether to also include questions from subcategories
      * @return int[] Question ids
      */
-    public static function get_eligible_question_ids(int $categoryid): array {
-        global $DB;
+    public static function get_eligible_question_ids(int $categoryid, bool $includesubcategories = false): array {
+        global $CFG, $DB;
 
         if (!$categoryid) {
             return [];
         }
+
+        $categoryids = [$categoryid];
+        if ($includesubcategories) {
+            require_once($CFG->libdir . '/questionlib.php');
+            $categoryids = question_categorylist($categoryid);
+        }
+
+        [$insql, $inparams] = $DB->get_in_or_equal($categoryids, SQL_PARAMS_NAMED);
 
         $sql = "SELECT q.id
                   FROM {question} q
@@ -62,7 +72,7 @@ class question_picker {
                   JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
              LEFT JOIN {qtype_multichoice_options} mco
                        ON q.qtype = 'multichoice' AND mco.questionid = q.id
-                 WHERE qbe.questioncategoryid = :categoryid
+                 WHERE qbe.questioncategoryid $insql
                    AND q.qtype IN ('multichoice', 'shortanswer')
                    AND (q.qtype <> 'multichoice' OR mco.single = 1)
                    AND qv.status = :readystatus
@@ -73,11 +83,12 @@ class question_picker {
                            AND v.status = :readystatus2
                    )";
 
-        return array_keys($DB->get_records_sql($sql, [
-            'categoryid'   => $categoryid,
+        $params = array_merge($inparams, [
             'readystatus'  => 'ready',
             'readystatus2' => 'ready',
-        ]));
+        ]);
+
+        return array_keys($DB->get_records_sql($sql, $params));
     }
 
     /**
@@ -96,7 +107,10 @@ class question_picker {
     public static function pick_question(\stdClass $quizquest, int $userid, int $attemptid): ?int {
         global $DB;
 
-        $eligible = self::get_eligible_question_ids(self::parse_category($quizquest->questioncategoryid));
+        $eligible = self::get_eligible_question_ids(
+            self::parse_category($quizquest->questioncategoryid),
+            (bool) ($quizquest->includesubcategories ?? false)
+        );
         if (!$eligible) {
             return null;
         }

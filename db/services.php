@@ -52,4 +52,13 @@ $functions = [
         'ajax'          => true,
         'loginrequired' => true,
     ],
+
+    'mod_quizquest_get_bank_categories' => [
+        'classname'     => 'mod_quizquest\external\get_bank_categories',
+        'methodname'    => 'execute',
+        'description'   => 'List the question categories in a chosen question bank, for the settings form.',
+        'type'          => 'read',
+        'ajax'          => true,
+        'loginrequired' => true,
+    ],
 ];

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/quizquest/db" VERSION="2026071104" COMMENT="XMLDB file for Moodle mod/quizquest"
+<XMLDB PATH="mod/quizquest/db" VERSION="2026071105" COMMENT="XMLDB file for Moodle mod/quizquest"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
   <TABLES>
@@ -11,6 +11,7 @@
         <FIELD NAME="intro" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Activity description shown on course page"/>
         <FIELD NAME="introformat" TYPE="int" LENGTH="4" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Format of the intro field"/>
         <FIELD NAME="questioncategoryid" TYPE="char" LENGTH="30" NOTNULL="false" SEQUENCE="false" COMMENT="Question bank category to draw questions from, stored as categoryid,contextid"/>
+        <FIELD NAME="includesubcategories" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Whether to also draw questions from subcategories of the chosen category"/>
         <FIELD NAME="steps" TYPE="int" LENGTH="6" NOTNULL="true" SEQUENCE="false" DEFAULT="10" COMMENT="Number of correct answers required to complete"/>
         <FIELD NAME="grade" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="100" COMMENT="Maximum grade points awarded on completion"/>
         <FIELD NAME="maxattempts" TYPE="int" LENGTH="6" NOTNULL="true" SEQUENCE="false" DEFAULT="-1" COMMENT="Maximum attempts allowed; -1 means unlimited"/>
