@@ -10,8 +10,6 @@ All notable changes to `mod_quizquest` are documented in this file.
 - **PHPUnit test suite** (48 tests): privacy provider, attempt manager, question picker, message bank, lib callbacks (grades, course reset incl. date shift, calendar events, deletion), all four external functions (incl. capability, open-window and IDOR checks), and a backup/restore roundtrip — plus a `mod_quizquest` data generator for third-party tests.
 - Maturity raised to BETA.
 
-## [0.4.1] - 2026-07-11
-
 ### Fixed
 
 - **"Course question bank" selection crashed** with a coding error on Moodle 5.x: question categories now only exist in qbank activity contexts, so the bank list offers the course's system-type question bank instance (creating it on demand, as core does) instead of the raw course context. The settings form also tolerates instances saved with the old course-context value by showing an empty category list to re-pick from rather than crashing.
@@ -20,6 +18,22 @@ All notable changes to `mod_quizquest` are documented in this file.
 - Grading: scales are now rejected in the settings form — the grade logic is point-based and a scale would have been stored as a negative point value.
 - Course reset: the "shift dates" option now moves the open/close dates and rebuilds the matching calendar events.
 - Replaced hard-coded UI strings ('#' column header, back link) with language strings and the FontAwesome completion icon with a core pix icon.
+
+## [0.4.0] - 2026-07-11
+
+### Added
+
+- **Question bank switching**: a "Question bank" select on the settings form, built from core's question bank sharing API, listing the course's own bank plus any banks shared from other courses or site-wide that the teacher may use. Choosing a bank refreshes the "Category" select via AJAX; the endpoint re-derives the caller's authorised bank list server-side rather than trusting the submitted context id, and the settings form re-validates the same on submit. The stored "categoryid,contextid" format is unchanged, so existing configurations needed no migration.
+- **Include subcategories** toggle: questions can also be drawn from every subcategory beneath the selected category, not just the category itself.
+- **Step-0 opening narrative**: a step message configured for step 0 is shown as opening narrative before the first question (both text boxes shown in sequence, prepended ahead of the replayed turn history).
+
+## [0.3.0] - 2026-07-11
+
+### Added
+
+- **Step-triggered narrative text**: teachers can configure text inserted before and/or after the feedback bubble when a correct answer brings the attempt's step tally up to a given step.
+- **Shuffled generic response pools**: optional pools of fallback correct/incorrect feedback, used when the matched question answer has no feedback text of its own. Each pool is consumed in shuffled order without repeats before reshuffling.
+- The exact text shown each turn (feedback and narrative) is persisted per response, so resuming an attempt and student review replay the same dialogue instead of regenerating generic strings.
 
 ## [0.2.0] - 2026-07-11
 

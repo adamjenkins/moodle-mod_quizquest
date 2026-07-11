@@ -63,7 +63,9 @@ class question_bank_lister {
             havingcap: self::HAVING_CAP
         );
         foreach ($shareable as $bank) {
-            $formatted = $bank->get_formatted();
+            // Moodle 5.1+ returns instances that format lazily via get_formatted();
+            // 5.0 returns pre-formatted stdClass records with the same properties.
+            $formatted = method_exists($bank, 'get_formatted') ? $bank->get_formatted() : $bank;
             // The course's system bank appears here too; keep its friendlier label from above.
             if (!isset($banks[$formatted->contextid])) {
                 $banks[$formatted->contextid] = $formatted->coursenamebankname;
