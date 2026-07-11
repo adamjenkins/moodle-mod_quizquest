@@ -2,6 +2,25 @@
 
 All notable changes to `mod_quizquest` are documented in this file.
 
+## [0.5.0] - 2026-07-11
+
+### Added
+
+- **Backup and restore support** (`FEATURE_BACKUP_MOODLE2`): full activity configuration (settings, step messages, generic response pools, progress images) plus optional user data (attempts and responses; teacher previews excluded). On restore, the question bank reference and per-response question ids are remapped when the bank was part of the backup, kept when restoring on the same site with the source still present, and cleared/zeroed otherwise so stale ids can never point at the wrong question. Duplicate/import now work from the course page.
+- **PHPUnit test suite** (48 tests): privacy provider, attempt manager, question picker, message bank, lib callbacks (grades, course reset incl. date shift, calendar events, deletion), all four external functions (incl. capability, open-window and IDOR checks), and a backup/restore roundtrip — plus a `mod_quizquest` data generator for third-party tests.
+- Maturity raised to BETA.
+
+## [0.4.1] - 2026-07-11
+
+### Fixed
+
+- **"Course question bank" selection crashed** with a coding error on Moodle 5.x: question categories now only exist in qbank activity contexts, so the bank list offers the course's system-type question bank instance (creating it on demand, as core does) instead of the raw course context. The settings form also tolerates instances saved with the old course-context value by showing an empty category list to re-pick from rather than crashing.
+- Security-review hardening: `format_string`/`format_text` now always receive the module context (and page context is set before use); the settings form's category picker decodes server labels to plain text instead of injecting HTML; the progress-image areas enforce the course upload size limit; step-message and generic-response fields are cleaned as plain text (`PARAM_TEXT`) on submission.
+- Privacy provider: declared the previously missing `feedbacktext`/`stepmsgbefore`/`stepmsgafter` (responses) and `correctpoolqueue`/`incorrectpoolqueue` (attempts) fields in the metadata, and included the per-turn text fields in data exports.
+- Grading: scales are now rejected in the settings form — the grade logic is point-based and a scale would have been stored as a negative point value.
+- Course reset: the "shift dates" option now moves the open/close dates and rebuilds the matching calendar events.
+- Replaced hard-coded UI strings ('#' column header, back link) with language strings and the FontAwesome completion icon with a core pix icon.
+
 ## [0.2.0] - 2026-07-11
 
 ### Added

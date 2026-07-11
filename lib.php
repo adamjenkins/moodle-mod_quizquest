@@ -44,7 +44,7 @@ function quizquest_supports($feature) {
         FEATURE_COMPLETION_TRACKS_VIEWS => true,
         FEATURE_COMPLETION_HAS_RULES  => true,
         FEATURE_GRADE_HAS_GRADE       => true,
-        FEATURE_BACKUP_MOODLE2        => false,
+        FEATURE_BACKUP_MOODLE2        => true,
         FEATURE_MOD_PURPOSE           => MOD_PURPOSE_ASSESSMENT,
         default                       => null,
     };
@@ -412,6 +412,7 @@ function quizquest_save_progress_images(stdClass $data): void {
     file_save_draft_area_files($data->progressimages, $context->id, 'mod_quizquest', 'progressimage', 0, [
         'subdirs' => 0,
         'maxfiles' => QUIZQUEST_MAX_PROGRESS_IMAGES,
+        'maxbytes' => get_course($data->course)->maxbytes,
         'accepted_types' => ['image'],
     ]);
 }
@@ -757,6 +758,19 @@ function quizquest_reset_userdata($data) {
             'component' => get_string('modulenameplural', 'mod_quizquest'),
             'item'      => get_string('attempts', 'mod_quizquest'),
             'error'     => false,
+        ];
+    }
+
+    // Shift the open/close dates when the reset requests a date shift.
+    // shift_course_mod_dates() only rewrites the date columns, so the open/close
+    // calendar events must be rebuilt for the shifted dates afterwards.
+    if (!empty($data->timeshift)) {
+        $shifted = shift_course_mod_dates('quizquest', ['timeopen', 'timeclose'], $data->timeshift, $data->courseid);
+        quizquest_refresh_events($data->courseid);
+        $status[] = [
+            'component' => get_string('modulenameplural', 'mod_quizquest'),
+            'item'      => get_string('openclosedatesupdated', 'mod_quizquest'),
+            'error'     => !$shifted,
         ];
     }
 

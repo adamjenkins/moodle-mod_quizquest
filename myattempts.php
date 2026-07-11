@@ -44,9 +44,11 @@ if (!$quizquest->allowstudentreview) {
 }
 
 $PAGE->set_url('/mod/quizquest/myattempts.php', ['id' => $cm->id]);
-$PAGE->set_title(format_string($quizquest->name) . ': ' . get_string('myattempts', 'mod_quizquest'));
-$PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
+$PAGE->set_title(
+    format_string($quizquest->name, true, ['context' => $context]) . ': ' . get_string('myattempts', 'mod_quizquest')
+);
+$PAGE->set_heading(format_string($course->fullname, true, ['context' => $context]));
 $PAGE->set_pagelayout('incourse');
 
 echo $OUTPUT->header();
@@ -80,7 +82,7 @@ if ($attemptid) {
             echo html_writer::start_div('d-flex mb-2 ' . ($isuser ? 'justify-content-end' : 'justify-content-start'));
             echo html_writer::tag(
                 'div',
-                format_text($msg['message'], FORMAT_PLAIN),
+                format_text($msg['message'], FORMAT_PLAIN, ['context' => $context]),
                 ['class' => "card $bg p-2 px-3", 'style' => 'max-width:80%;border-radius:1rem;']
             );
             echo html_writer::end_div();
@@ -102,7 +104,7 @@ if (empty($attempts)) {
 } else {
     $table = new html_table();
     $table->head = [
-        '#',
+        get_string('attemptnumber', 'mod_quizquest'),
         get_string('attemptstarted', 'mod_quizquest'),
         get_string('statuslabel', 'mod_quizquest'),
         '',
@@ -122,6 +124,10 @@ if (empty($attempts)) {
 }
 
 $backurl = new moodle_url('/mod/quizquest/view.php', ['id' => $cm->id]);
-echo html_writer::link($backurl, '&laquo; ' . get_string('modulename', 'mod_quizquest'), ['class' => 'btn btn-secondary mt-2']);
+echo html_writer::link(
+    $backurl,
+    get_string('backto', 'moodle', format_string($quizquest->name, true, ['context' => $context])),
+    ['class' => 'btn btn-secondary mt-2']
+);
 
 echo $OUTPUT->footer();

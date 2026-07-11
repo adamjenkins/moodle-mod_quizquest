@@ -145,6 +145,7 @@ class mod_quizquest_mod_form extends moodleform_mod {
         $mform->addElement('filemanager', 'progressimages', get_string('progressimages', 'mod_quizquest'), null, [
             'subdirs' => 0,
             'maxfiles' => QUIZQUEST_MAX_PROGRESS_IMAGES,
+            'maxbytes' => $COURSE->maxbytes,
             'accepted_types' => ['image'],
         ]);
         $mform->addHelpButton('progressimages', 'progressimages', 'mod_quizquest');
@@ -185,9 +186,9 @@ class mod_quizquest_mod_form extends moodleform_mod {
             ),
         ];
         $repeateloptions = [
-            'stepmsg_step'   => ['type' => PARAM_RAW],
-            'stepmsg_before' => ['type' => PARAM_RAW],
-            'stepmsg_after'  => ['type' => PARAM_RAW],
+            'stepmsg_step'   => ['type' => PARAM_TEXT],
+            'stepmsg_before' => ['type' => PARAM_TEXT],
+            'stepmsg_after'  => ['type' => PARAM_TEXT],
         ];
 
         $existingcount = $this->current->instance
@@ -235,7 +236,7 @@ class mod_quizquest_mod_form extends moodleform_mod {
         $this->repeat_elements(
             $correctrepeatarray,
             max($existingcorrect + 2, 3),
-            ['correctresponse_text' => ['type' => PARAM_RAW]],
+            ['correctresponse_text' => ['type' => PARAM_TEXT]],
             'correctresponse_repeats',
             'correctresponse_add_fields',
             1,
@@ -260,7 +261,7 @@ class mod_quizquest_mod_form extends moodleform_mod {
         $this->repeat_elements(
             $incorrectrepeatarray,
             max($existingincorrect + 2, 3),
-            ['incorrectresponse_text' => ['type' => PARAM_RAW]],
+            ['incorrectresponse_text' => ['type' => PARAM_TEXT]],
             'incorrectresponse_repeats',
             'incorrectresponse_add_fields',
             1,
@@ -278,13 +279,14 @@ class mod_quizquest_mod_form extends moodleform_mod {
     public function data_preprocessing(&$defaultvalues) {
         parent::data_preprocessing($defaultvalues);
 
-        global $DB;
+        global $COURSE, $DB;
 
         $draftitemid = file_get_submitted_draft_itemid('progressimages');
         if ($this->current->instance) {
             file_prepare_draft_area($draftitemid, $this->context->id, 'mod_quizquest', 'progressimage', 0, [
                 'subdirs' => 0,
                 'maxfiles' => QUIZQUEST_MAX_PROGRESS_IMAGES,
+                'maxbytes' => $COURSE->maxbytes,
             ]);
         }
         $defaultvalues['progressimages'] = $draftitemid;
@@ -340,6 +342,12 @@ class mod_quizquest_mod_form extends moodleform_mod {
         $steps = (int) ($data['steps'] ?? 0);
         if ($steps < 1 || $steps > 100) {
             $errors['steps'] = get_string('error:stepsinvalid', 'mod_quizquest');
+        }
+
+        // Scales are stored as negative ids in the integer grade column, which the
+        // point-based grading logic cannot interpret; only points (or none) work.
+        if (isset($data['grade']) && (int) $data['grade'] < 0) {
+            $errors['grade'] = get_string('error:gradescalenotsupported', 'mod_quizquest');
         }
 
         // Reject a category from a bank this user isn't authorised to use — the client-side
@@ -422,7 +430,10 @@ class mod_quizquest_mod_form extends moodleform_mod {
      */
     protected function get_category_options_for_context(int $contextid): array {
         $context = \context::instance_by_id($contextid, IGNORE_MISSING);
-        if (!$context) {
+        // Question categories only live in module (qbank) contexts since Moodle 5.0.
+        // Instances saved before 0.4.1 may still reference a course context here;
+        // returning no options makes the teacher re-pick instead of crashing the form.
+        if (!$context || $context->contextlevel != CONTEXT_MODULE) {
             return [];
         }
 

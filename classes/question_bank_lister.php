@@ -32,6 +32,12 @@ class question_bank_lister {
     /**
      * Returns the banks available to the current user, keyed by context id.
      *
+     * Every returned context is a module (qbank activity) context: since Moodle 5.0
+     * question categories only live in qbank instances, and the course's own
+     * "course question bank" is a system-type qbank instance created on demand.
+     * Callers must be gated by moodle/course:manageactivities, both because bank
+     * selection is a teacher action and because the course bank may be created here.
+     *
      * @param int $courseid The course the quizquest activity belongs to
      * @return array<int, string> Context id => display label
      */
@@ -42,16 +48,26 @@ class question_bank_lister {
         $course = get_course($courseid);
         $coursecontext = \context_course::instance($courseid);
 
-        $banks = [
-            $coursecontext->id => get_string('coursequestionbank', 'mod_quizquest', format_string($course->fullname)),
-        ];
+        $banks = [];
+
+        $systembank = \core_question\local\bank\question_bank_helper::get_default_open_instance_system_type($course, true);
+        if ($systembank) {
+            $banks[$systembank->context->id] = get_string(
+                'coursequestionbank',
+                'mod_quizquest',
+                format_string($course->fullname, true, ['context' => $coursecontext])
+            );
+        }
 
         $shareable = \core_question\local\bank\question_bank_helper::get_activity_instances_with_shareable_questions(
             havingcap: self::HAVING_CAP
         );
         foreach ($shareable as $bank) {
             $formatted = $bank->get_formatted();
-            $banks[$formatted->contextid] = $formatted->coursenamebankname;
+            // The course's system bank appears here too; keep its friendlier label from above.
+            if (!isset($banks[$formatted->contextid])) {
+                $banks[$formatted->contextid] = $formatted->coursenamebankname;
+            }
         }
 
         return $banks;

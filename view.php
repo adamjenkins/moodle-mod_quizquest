@@ -48,13 +48,13 @@ $completion = new completion_info($course);
 $completion->set_module_viewed($cm);
 
 $PAGE->set_url('/mod/quizquest/view.php', ['id' => $cm->id]);
-$PAGE->set_title(format_string($quizquest->name));
-$PAGE->set_heading(format_string($course->fullname));
 $PAGE->set_context($context);
+$PAGE->set_title(format_string($quizquest->name, true, ['context' => $context]));
+$PAGE->set_heading(format_string($course->fullname, true, ['context' => $context]));
 
 echo $OUTPUT->header();
 echo html_writer::start_div('quizquest-page');
-echo $OUTPUT->heading(format_string($quizquest->name), 2);
+echo $OUTPUT->heading(format_string($quizquest->name, true, ['context' => $context]), 2);
 
 // Note: the activity description is already rendered once by core's activity
 // header inside $OUTPUT->header() above; do not print $quizquest->intro again here.

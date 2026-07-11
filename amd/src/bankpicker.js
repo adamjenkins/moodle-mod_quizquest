@@ -62,12 +62,16 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             methodname: 'mod_quizquest_get_bank_categories',
             args: {courseid: courseId, bankcontextid: bankContextId},
         }])[0].then(function(result) {
+            // The labels arrive HTML-escaped, with literal &nbsp; entities indenting
+            // subcategories. Decode them in a detached textarea (which never executes
+            // markup) and assign the resulting plain text, so no server HTML ever
+            // reaches the live DOM.
+            var decoder = document.createElement('textarea');
             result.categories.forEach(function(category) {
                 var option = document.createElement('option');
                 option.value = category.value;
-                // The label is HTML-escaped server-side and uses literal &nbsp; entities
-                // for subcategory indentation, so it must be parsed as HTML, not text.
-                option.innerHTML = category.label;
+                decoder.innerHTML = category.label;
+                option.textContent = decoder.value;
                 categorySelect.appendChild(option);
             });
             if (previous && hasOption(categorySelect, previous)) {

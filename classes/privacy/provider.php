@@ -51,6 +51,8 @@ class provider implements
             'timemodified' => 'privacy:metadata:quizquest_attempts:timemodified',
             'timecompleted' => 'privacy:metadata:quizquest_attempts:timecompleted',
             'ispreview' => 'privacy:metadata:quizquest_attempts:ispreview',
+            'correctpoolqueue' => 'privacy:metadata:quizquest_attempts:correctpoolqueue',
+            'incorrectpoolqueue' => 'privacy:metadata:quizquest_attempts:incorrectpoolqueue',
         ], 'privacy:metadata:quizquest_attempts');
 
         $collection->add_database_table('quizquest_responses', [
@@ -59,6 +61,9 @@ class provider implements
             'iscorrect' => 'privacy:metadata:quizquest_responses:iscorrect',
             'stepchange' => 'privacy:metadata:quizquest_responses:stepchange',
             'timecreated' => 'privacy:metadata:quizquest_responses:timecreated',
+            'feedbacktext' => 'privacy:metadata:quizquest_responses:feedbacktext',
+            'stepmsgbefore' => 'privacy:metadata:quizquest_responses:stepmsgbefore',
+            'stepmsgafter' => 'privacy:metadata:quizquest_responses:stepmsgafter',
         ], 'privacy:metadata:quizquest_responses');
 
         return $collection;
@@ -170,6 +175,9 @@ class provider implements
                             'iscorrect' => $response->iscorrect === null ? null : transform::yesno($response->iscorrect),
                             'stepchange' => $response->stepchange,
                             'timecreated' => transform::datetime($response->timecreated),
+                            'feedbacktext' => $response->feedbacktext,
+                            'stepmsgbefore' => $response->stepmsgbefore,
+                            'stepmsgafter' => $response->stepmsgafter,
                         ];
                     }, $responses)),
                 ];
