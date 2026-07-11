@@ -1,0 +1,14 @@
+{
+    "name": "adamjenkins/moodle-mod_quizquest",
+    "description": "A Moodle activity module that presents question bank questions as an interactive, escape-room style quest with progress images",
+    "type": "moodle-mod",
+    "require": {
+        "moodle/moodle": "^5.0",
+        "moodle/composer-installer": "*"
+    },
+    "license": "GPL-3.0-or-later",
+    "require-dev": {
+        "squizlabs/php_codesniffer": "*",
+        "moodlehq/moodle-cs": "*"
+    }
+}
