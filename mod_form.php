@@ -328,7 +328,7 @@ class mod_quizquest_mod_form extends moodleform_mod {
                 continue;
             }
 
-            if ($rawstep === '' || !ctype_digit($rawstep) || (int) $rawstep < 1 || (int) $rawstep > $steps) {
+            if ($rawstep === '' || !ctype_digit($rawstep) || (int) $rawstep > $steps) {
                 $errors["stepmsg_step[$i]"] = get_string('error:stepmessagestepinvalid', 'mod_quizquest');
                 continue;
             }

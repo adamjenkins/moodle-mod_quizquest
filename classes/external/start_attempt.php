@@ -22,6 +22,7 @@ use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use mod_quizquest\attempt_manager;
+use mod_quizquest\message_bank;
 use mod_quizquest\question_picker;
 
 /**
@@ -83,12 +84,28 @@ class start_attempt extends external_api {
             ? question_picker::get_question_payload((int) $pending->questionid)
             : $manager->serve_question($quizquest, $attempt);
 
+        $messages = $manager->build_history($attempt->id);
+
+        // Step 0 is narrative shown before the first question, not tied to any answer,
+        // so it isn't part of the answered-turn history: prepend it here instead.
+        $intro = message_bank::get_step_message((int) $quizquest->id, 0);
+        if ($intro) {
+            $intromessages = [];
+            if ((string) $intro->textbefore !== '') {
+                $intromessages[] = ['role' => 'assistant', 'message' => $intro->textbefore];
+            }
+            if ((string) $intro->textafter !== '') {
+                $intromessages[] = ['role' => 'assistant', 'message' => $intro->textafter];
+            }
+            $messages = array_merge($intromessages, $messages);
+        }
+
         return [
             'attemptid'    => (int) $attempt->id,
             'tally'        => (int) $attempt->stepstally,
             'steps'        => (int) $quizquest->steps,
             'showprogress' => (bool) $quizquest->showprogress,
-            'messages'     => $manager->build_history($attempt->id),
+            'messages'     => $messages,
             'question'     => $question,
             'canrestart'   => $manager->can_start_new_attempt($quizquest, $USER->id, $ispreview),
         ];
