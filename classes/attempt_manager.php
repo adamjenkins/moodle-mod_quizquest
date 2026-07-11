@@ -25,6 +25,49 @@ namespace mod_quizquest;
  */
 class attempt_manager {
     /**
+     * Whether the activity is currently within its open/close window.
+     *
+     * @param stdClass $quizquest The activity record
+     * @param int|null $now Timestamp to check against (defaults to now)
+     * @return bool
+     */
+    public static function is_open(\stdClass $quizquest, ?int $now = null): bool {
+        $now = $now ?? time();
+        if (!empty($quizquest->timeopen) && $now < (int) $quizquest->timeopen) {
+            return false;
+        }
+        return !self::is_closed($quizquest, $now);
+    }
+
+    /**
+     * Whether the activity's close date has passed.
+     *
+     * @param stdClass $quizquest The activity record
+     * @param int|null $now Timestamp to check against (defaults to now)
+     * @return bool
+     */
+    public static function is_closed(\stdClass $quizquest, ?int $now = null): bool {
+        return !empty($quizquest->timeclose) && ($now ?? time()) > (int) $quizquest->timeclose;
+    }
+
+    /**
+     * Abandons an in-progress attempt whose activity close date has passed.
+     *
+     * @param stdClass $attempt   The attempt record
+     * @param stdClass $quizquest The activity record
+     * @return bool Whether the attempt was abandoned
+     */
+    public function abandon_expired_attempt(\stdClass $attempt, \stdClass $quizquest): bool {
+        if ($attempt->status !== 'inprogress' || !self::is_closed($quizquest)) {
+            return false;
+        }
+        $course = get_course($quizquest->course);
+        $cm = get_fast_modinfo($course)->get_instances_of('quizquest')[$quizquest->id];
+        $this->abandon_attempt($attempt, $quizquest, $course, $cm);
+        return true;
+    }
+
+    /**
      * Returns the current in-progress attempt for a user, or null if none exists.
      *
      * @param int $quizquest Activity instance id

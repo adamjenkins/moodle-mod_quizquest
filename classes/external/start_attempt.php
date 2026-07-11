@@ -62,6 +62,20 @@ class start_attempt extends external_api {
 
         $quizquest = $DB->get_record('quizquest', ['id' => $cm->instance], '*', MUST_EXIST);
         $manager   = new attempt_manager();
+
+        // Enforce the open/close window for students; previewing users may play any time.
+        if (!$ispreview) {
+            if (!empty($quizquest->timeopen) && time() < $quizquest->timeopen) {
+                throw new \moodle_exception('error:notopenyet', 'mod_quizquest', '', userdate($quizquest->timeopen));
+            }
+            if (attempt_manager::is_closed($quizquest)) {
+                if ($active = $manager->get_active_attempt($quizquest->id, $USER->id)) {
+                    $manager->abandon_expired_attempt($active, $quizquest);
+                }
+                throw new \moodle_exception('error:closedon', 'mod_quizquest', '', userdate($quizquest->timeclose));
+            }
+        }
+
         $attempt   = $manager->get_or_create_attempt($quizquest, $USER->id, $ispreview);
 
         $pending = $manager->get_pending_response($attempt->id);

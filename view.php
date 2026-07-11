@@ -84,6 +84,37 @@ if (!has_capability('mod/quizquest:play', $context)) {
 // Check attempt availability.
 $atman = new \mod_quizquest\attempt_manager();
 $ispreview = has_capability('mod/quizquest:viewreports', $context);
+
+// Enforce the open/close window for students; previewing users may play any time.
+if (!$ispreview) {
+    if (!empty($quizquest->timeopen) && time() < $quizquest->timeopen) {
+        echo $OUTPUT->notification(
+            get_string('error:notopenyet', 'mod_quizquest', userdate($quizquest->timeopen)),
+            'info'
+        );
+        echo html_writer::end_div();
+        echo $OUTPUT->footer();
+        exit;
+    }
+    if (\mod_quizquest\attempt_manager::is_closed($quizquest)) {
+        // Finalise any attempt the student still has open.
+        if ($activeattempt = $atman->get_active_attempt($quizquest->id, $USER->id)) {
+            $atman->abandon_attempt($activeattempt, $quizquest, $course, $cm);
+        }
+        echo $OUTPUT->notification(
+            get_string('error:closedon', 'mod_quizquest', userdate($quizquest->timeclose)),
+            'warning'
+        );
+        if ($quizquest->allowstudentreview && has_capability('mod/quizquest:viewownattempts', $context)) {
+            $myurl = new moodle_url('/mod/quizquest/myattempts.php', ['id' => $cm->id]);
+            echo html_writer::link($myurl, get_string('viewattempts', 'mod_quizquest'), ['class' => 'btn btn-secondary mt-2']);
+        }
+        echo html_writer::end_div();
+        echo $OUTPUT->footer();
+        exit;
+    }
+}
+
 $canstart = $atman->can_start_new_attempt($quizquest, $USER->id, $ispreview);
 $activeattempt = $atman->get_active_attempt($quizquest->id, $USER->id, $ispreview);
 

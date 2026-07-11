@@ -29,6 +29,25 @@
  * @return bool
  */
 function xmldb_quizquest_upgrade($oldversion) {
-    // No upgrade steps yet.
+    global $DB;
+
+    $dbman = $DB->get_manager();
+
+    if ($oldversion < 2026071102) {
+        $table = new xmldb_table('quizquest');
+
+        $field = new xmldb_field('timeopen', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'wrongpenalty');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $field = new xmldb_field('timeclose', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'timeopen');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_mod_savepoint(true, 2026071102, 'quizquest');
+    }
+
     return true;
 }

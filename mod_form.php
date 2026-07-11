@@ -51,6 +51,23 @@ class mod_quizquest_mod_form extends moodleform_mod {
 
         $this->standard_intro_elements();
 
+        $mform->addElement('header', 'timing', get_string('timing', 'mod_quizquest'));
+
+        $mform->addElement(
+            'date_time_selector',
+            'timeopen',
+            get_string('questopen', 'mod_quizquest'),
+            ['optional' => true]
+        );
+        $mform->addHelpButton('timeopen', 'questopenclose', 'mod_quizquest');
+
+        $mform->addElement(
+            'date_time_selector',
+            'timeclose',
+            get_string('questclose', 'mod_quizquest'),
+            ['optional' => true]
+        );
+
         $mform->addElement('header', 'gamesettings', get_string('gamesettings', 'mod_quizquest'));
 
         $mform->addElement(
@@ -140,6 +157,11 @@ class mod_quizquest_mod_form extends moodleform_mod {
         $categoryid = \mod_quizquest\question_picker::parse_category($data['questioncategoryid'] ?? '');
         if (!$categoryid || !\mod_quizquest\question_picker::get_eligible_question_ids($categoryid)) {
             $errors['questioncategoryid'] = get_string('error:noquestionsincategory', 'mod_quizquest');
+        }
+
+        // Check open and close times are consistent.
+        if (!empty($data['timeopen']) && !empty($data['timeclose']) && $data['timeclose'] < $data['timeopen']) {
+            $errors['timeclose'] = get_string('closebeforeopen', 'mod_quizquest');
         }
 
         return $errors;

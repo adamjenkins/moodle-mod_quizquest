@@ -54,6 +54,7 @@ A fullscreen toggle button in the top-right corner of the game interface lets st
 
 | Setting | Description |
 |---------|-------------|
+| Open/Close the quest | Optional open and close dates (shown on the course page like the quiz module); attempts still open at the close date are automatically abandoned |
 | Question category | The question bank category questions are drawn from |
 | Steps to complete | Number of correct answers required to complete (1–100) |
 | Maximum attempts | How many attempts a student may make |

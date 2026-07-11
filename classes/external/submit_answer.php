@@ -86,6 +86,13 @@ class submit_answer extends external_api {
         }
 
         $manager = new attempt_manager();
+
+        // A closed activity accepts no more answers; finalise the attempt instead.
+        if (empty($attempt->ispreview) && attempt_manager::is_closed($quizquest)) {
+            $manager->abandon_expired_attempt($attempt, $quizquest);
+            throw new \moodle_exception('error:closedon', 'mod_quizquest', '', userdate($quizquest->timeclose));
+        }
+
         $pending = $manager->get_pending_response($attempt->id);
         if (!$pending) {
             throw new \moodle_exception('error:invalidattempt', 'mod_quizquest');

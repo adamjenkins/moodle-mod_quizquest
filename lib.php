@@ -58,7 +58,7 @@ function quizquest_supports($feature) {
 function quizquest_get_coursemodule_info($coursemodule) {
     global $DB;
 
-    $quizquest = $DB->get_record('quizquest', ['id' => $coursemodule->instance], 'id, name');
+    $quizquest = $DB->get_record('quizquest', ['id' => $coursemodule->instance], 'id, name, timeopen, timeclose');
     if (!$quizquest) {
         return null;
     }
@@ -68,6 +68,14 @@ function quizquest_get_coursemodule_info($coursemodule) {
 
     if ($coursemodule->completion == COMPLETION_TRACKING_AUTOMATIC) {
         $info->customdata['customcompletionrules']['completioncompleted'] = 1;
+    }
+
+    // Populate the open/close dates for the \mod_quizquest\dates provider (course page and activity header).
+    if ($quizquest->timeopen) {
+        $info->customdata['timeopen'] = $quizquest->timeopen;
+    }
+    if ($quizquest->timeclose) {
+        $info->customdata['timeclose'] = $quizquest->timeclose;
     }
 
     return $info;
