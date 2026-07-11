@@ -25,6 +25,12 @@
 /** @var int Maximum number of progress images that may be uploaded per activity. */
 define('QUIZQUEST_MAX_PROGRESS_IMAGES', 20);
 
+/** @var string Calendar event type for the open date. */
+define('QUIZQUEST_EVENT_TYPE_OPEN', 'open');
+
+/** @var string Calendar event type for the close date. */
+define('QUIZQUEST_EVENT_TYPE_CLOSE', 'close');
+
 /**
  * Returns the features this module supports.
  *
@@ -98,6 +104,7 @@ function quizquest_add_instance(stdClass $data, ?mod_quizquest_mod_form $mform =
 
     quizquest_grade_item_update($data);
     quizquest_save_progress_images($data);
+    quizquest_update_events($data);
 
     return $data->id;
 }
@@ -118,6 +125,7 @@ function quizquest_update_instance(stdClass $data, ?mod_quizquest_mod_form $mfor
 
     quizquest_grade_item_update($data);
     quizquest_save_progress_images($data);
+    quizquest_update_events($data);
 
     return true;
 }
@@ -138,12 +146,251 @@ function quizquest_delete_instance($id): bool {
         $DB->delete_records_list('quizquest_responses', 'attemptid', $attemptids);
     }
     $DB->delete_records('quizquest_attempts', ['quizquest' => $quizquest->id]);
+    $DB->delete_records('event', ['modulename' => 'quizquest', 'instance' => $quizquest->id]);
 
     quizquest_grade_item_delete($quizquest);
 
     $DB->delete_records('quizquest', ['id' => $quizquest->id]);
 
     return true;
+}
+
+/**
+ * Creates, updates, or deletes the open/close calendar events for an activity instance.
+ *
+ * Mirrors quiz_update_events() (without the override handling quiz needs):
+ * separate "opens" and "closes" events, with the close event acting as the
+ * action event that drives the timeline block.
+ *
+ * @param stdClass $quizquest The activity record (form data or DB record)
+ */
+function quizquest_update_events(stdClass $quizquest): void {
+    global $CFG, $DB;
+    require_once($CFG->dirroot . '/calendar/lib.php');
+
+    $oldevents = $DB->get_records('event', ['modulename' => 'quizquest', 'instance' => $quizquest->id], 'id ASC');
+
+    if (!empty($quizquest->coursemodule)) {
+        $cmid = $quizquest->coursemodule;
+    } else {
+        $cmid = get_coursemodule_from_instance('quizquest', $quizquest->id, $quizquest->course)->id;
+    }
+
+    $event = new stdClass();
+    $event->description  = format_module_intro('quizquest', $quizquest, $cmid, false);
+    $event->format       = FORMAT_HTML;
+    $event->courseid     = $quizquest->course;
+    $event->groupid      = 0;
+    $event->userid       = 0;
+    $event->modulename   = 'quizquest';
+    $event->instance     = $quizquest->id;
+    $event->timeduration = 0;
+    $event->visible      = instance_is_visible('quizquest', $quizquest);
+    $event->priority     = null;
+
+    if (!empty($quizquest->timeopen)) {
+        if ($oldevent = array_shift($oldevents)) {
+            $event->id = $oldevent->id;
+        } else {
+            unset($event->id);
+        }
+        $event->name      = get_string('calendareventopens', 'mod_quizquest', $quizquest->name);
+        // The open event only drives the timeline when there is no close event.
+        $event->type      = empty($quizquest->timeclose) ? CALENDAR_EVENT_TYPE_ACTION : CALENDAR_EVENT_TYPE_STANDARD;
+        $event->timestart = $quizquest->timeopen;
+        $event->timesort  = $quizquest->timeopen;
+        $event->eventtype = QUIZQUEST_EVENT_TYPE_OPEN;
+        calendar_event::create($event, false);
+    }
+
+    if (!empty($quizquest->timeclose)) {
+        if ($oldevent = array_shift($oldevents)) {
+            $event->id = $oldevent->id;
+        } else {
+            unset($event->id);
+        }
+        $event->name      = get_string('calendareventcloses', 'mod_quizquest', $quizquest->name);
+        $event->type      = CALENDAR_EVENT_TYPE_ACTION;
+        $event->timestart = $quizquest->timeclose;
+        $event->timesort  = $quizquest->timeclose;
+        $event->eventtype = QUIZQUEST_EVENT_TYPE_CLOSE;
+        calendar_event::create($event, false);
+    }
+
+    // Delete any leftover events.
+    foreach ($oldevents as $badevent) {
+        $badevent = calendar_event::load($badevent);
+        $badevent->delete();
+    }
+}
+
+/**
+ * Refreshes the calendar events for one instance, one course, or the whole site.
+ *
+ * Standard callback used by course restore and the "Refresh calendar events" tool.
+ *
+ * @param int $courseid Course id, or 0 for all courses
+ * @param stdClass|int|null $instance Activity instance record or id
+ * @param stdClass|null $cm Unused course module (part of the callback signature)
+ * @return bool
+ */
+function quizquest_refresh_events($courseid = 0, $instance = null, $cm = null) {
+    global $DB;
+
+    if (isset($instance)) {
+        if (!is_object($instance)) {
+            $instance = $DB->get_record('quizquest', ['id' => $instance], '*', MUST_EXIST);
+        }
+        quizquest_update_events($instance);
+        return true;
+    }
+
+    $conditions = $courseid ? ['course' => $courseid] : [];
+    foreach ($DB->get_records('quizquest', $conditions) as $quizquest) {
+        quizquest_update_events($quizquest);
+    }
+    return true;
+}
+
+/**
+ * Provides the action for a quizquest calendar event (timeline / calendar blocks).
+ *
+ * @param calendar_event $event The calendar event
+ * @param \core_calendar\action_factory $factory The action factory
+ * @param int $userid User id, 0 for current user
+ * @return \core_calendar\local\event\entities\action_interface|null
+ */
+function mod_quizquest_core_calendar_provide_event_action(
+    calendar_event $event,
+    \core_calendar\action_factory $factory,
+    int $userid = 0
+) {
+    global $DB, $USER;
+
+    if (empty($userid)) {
+        $userid = $USER->id;
+    }
+
+    $cm = get_fast_modinfo($event->courseid, $userid)->instances['quizquest'][$event->instance];
+    $context = context_module::instance($cm->id);
+
+    if (!has_capability('mod/quizquest:play', $context, $userid)) {
+        return null;
+    }
+    if (!is_enrolled(context_course::instance($cm->course), $userid)) {
+        // Filter out the events for teachers and admins who are not participants.
+        return null;
+    }
+
+    $completion = new \completion_info($cm->get_course());
+    $completiondata = $completion->get_data($cm, false, $userid);
+    if ($completiondata->completionstate != COMPLETION_INCOMPLETE) {
+        return null;
+    }
+
+    $quizquest = $DB->get_record('quizquest', ['id' => $event->instance], '*', MUST_EXIST);
+
+    // Nothing to do once the activity has closed.
+    if (\mod_quizquest\attempt_manager::is_closed($quizquest)) {
+        return null;
+    }
+
+    // Nothing to do once the user has completed the quest, or has no attempts left.
+    $manager = new \mod_quizquest\attempt_manager();
+    $hascompleted = $DB->record_exists('quizquest_attempts', [
+        'quizquest' => $quizquest->id, 'userid' => $userid, 'status' => 'completed', 'ispreview' => 0,
+    ]);
+    if ($hascompleted) {
+        return null;
+    }
+    if (!$manager->can_start_new_attempt($quizquest, $userid) && !$manager->get_active_attempt($quizquest->id, $userid)) {
+        return null;
+    }
+
+    $actionable = empty($quizquest->timeopen) || $quizquest->timeopen <= time();
+
+    return $factory->create_instance(
+        get_string('startgame', 'mod_quizquest'),
+        new \moodle_url('/mod/quizquest/view.php', ['id' => $cm->id]),
+        1,
+        $actionable
+    );
+}
+
+/**
+ * Returns the valid drag range for a quizquest calendar event in the calendar UI.
+ *
+ * @param calendar_event $event The calendar event being moved
+ * @param stdClass $quizquest The activity record
+ * @return array [min timestamp + error string | null, max timestamp + error string | null]
+ */
+function mod_quizquest_core_calendar_get_valid_event_timestart_range(\calendar_event $event, \stdClass $quizquest) {
+    $mindate = null;
+    $maxdate = null;
+
+    if ($event->eventtype == QUIZQUEST_EVENT_TYPE_OPEN) {
+        if (!empty($quizquest->timeclose)) {
+            $maxdate = [
+                $quizquest->timeclose,
+                get_string('openafterclose', 'mod_quizquest'),
+            ];
+        }
+    } else if ($event->eventtype == QUIZQUEST_EVENT_TYPE_CLOSE) {
+        if (!empty($quizquest->timeopen)) {
+            $mindate = [
+                $quizquest->timeopen,
+                get_string('closebeforeopen', 'mod_quizquest'),
+            ];
+        }
+    }
+
+    return [$mindate, $maxdate];
+}
+
+/**
+ * Updates the activity's open/close date when its calendar event is dragged to a new time.
+ *
+ * @param calendar_event $event The calendar event that was updated
+ * @param stdClass $quizquest The activity record
+ */
+function mod_quizquest_core_calendar_event_timestart_updated(\calendar_event $event, \stdClass $quizquest): void {
+    global $DB;
+
+    if (!in_array($event->eventtype, [QUIZQUEST_EVENT_TYPE_OPEN, QUIZQUEST_EVENT_TYPE_CLOSE])) {
+        return;
+    }
+
+    if ($event->modulename != 'quizquest' || $quizquest->id != $event->instance) {
+        return;
+    }
+
+    $coursemodule = get_fast_modinfo($event->courseid)->instances['quizquest'][$quizquest->id];
+    $context = context_module::instance($coursemodule->id);
+
+    if (!has_capability('moodle/course:manageactivities', $context)) {
+        return;
+    }
+
+    $modified = false;
+    if ($event->eventtype == QUIZQUEST_EVENT_TYPE_OPEN) {
+        if ($quizquest->timeopen != $event->timestart) {
+            $quizquest->timeopen = $event->timestart;
+            $modified = true;
+        }
+    } else {
+        if ($quizquest->timeclose != $event->timestart) {
+            $quizquest->timeclose = $event->timestart;
+            $modified = true;
+        }
+    }
+
+    if ($modified) {
+        $quizquest->timemodified = time();
+        $DB->update_record('quizquest', $quizquest);
+        quizquest_update_events($quizquest);
+        $event = \core\event\course_module_updated::create_from_cm($coursemodule, $context);
+        $event->trigger();
+    }
 }
 
 /**

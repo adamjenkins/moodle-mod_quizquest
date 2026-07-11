@@ -7,6 +7,7 @@ All notable changes to `mod_quizquest` are documented in this file.
 ### Added
 
 - **Open and close dates** (Timing section in the activity settings), mimicking mod_quiz. The dates are surfaced through Moodle's activity-dates API, so "Opens:/Closes:" lines on the course page and activity page render identically to the quiz module. Students cannot start or answer attempts outside the window; teachers/managers can preview at any time. Attempts still in progress at the close date are automatically abandoned — lazily when next accessed, and by a new scheduled task (`\mod_quizquest\task\abandon_expired_attempts`) — awarding a partial grade when "Partial score on quit" is enabled.
+- **Calendar events** for the open and close dates, matching mod_quiz: "… opens" / "… closes" events appear in the calendar and the timeline block (with a "Start Quest" action for students who can still play), dragging an event in the calendar updates the activity dates within a validated range, and `quizquest_refresh_events()` supports course restore and the "Refresh calendar events" tool.
 
 ## [0.1.0] - 2026-07-11
 
