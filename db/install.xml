@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/quizquest/db" VERSION="2026071100" COMMENT="XMLDB file for Moodle mod/quizquest"
+<XMLDB PATH="mod/quizquest/db" VERSION="2026071104" COMMENT="XMLDB file for Moodle mod/quizquest"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
   <TABLES>
@@ -39,6 +39,8 @@
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
         <FIELD NAME="timecompleted" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Timestamp when attempt was completed"/>
         <FIELD NAME="ispreview" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Whether this attempt was made by a teacher/manager previewing the activity"/>
+        <FIELD NAME="correctpoolqueue" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Remaining shuffled generic-correct-response ids not yet shown this attempt, comma separated"/>
+        <FIELD NAME="incorrectpoolqueue" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Remaining shuffled generic-incorrect-response ids not yet shown this attempt, comma separated"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -58,6 +60,9 @@
         <FIELD NAME="iscorrect" TYPE="int" LENGTH="2" NOTNULL="false" SEQUENCE="false" COMMENT="Whether the response was judged correct; null while unanswered"/>
         <FIELD NAME="stepchange" TYPE="int" LENGTH="4" NOTNULL="false" SEQUENCE="false" COMMENT="Step delta applied by this response"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>
+        <FIELD NAME="feedbacktext" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="The exact feedback text shown to the student for this turn"/>
+        <FIELD NAME="stepmsgbefore" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Narrative text shown before the feedback, if a step message matched this turn"/>
+        <FIELD NAME="stepmsgafter" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Narrative text shown after the feedback, if a step message matched this turn"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -66,6 +71,38 @@
       </KEYS>
       <INDEXES>
         <INDEX NAME="attemptid_timecreated" UNIQUE="false" FIELDS="attemptid, timecreated"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="quizquest_stepmessages" COMMENT="Narrative text inserted before/after feedback when an attempt reaches a given step">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="quizquest" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Foreign key to quizquest table"/>
+        <FIELD NAME="step" TYPE="int" LENGTH="6" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Step tally value that triggers this message"/>
+        <FIELD NAME="textbefore" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Text inserted before the feedback bubble"/>
+        <FIELD NAME="textafter" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Text inserted after the feedback bubble"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizquest" TYPE="foreign" FIELDS="quizquest" REFTABLE="quizquest" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="quizquest_step" UNIQUE="true" FIELDS="quizquest, step"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="quizquest_genericresponses" COMMENT="Pools of generic correct/incorrect feedback responses, shuffled through as a fallback">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="quizquest" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Foreign key to quizquest table"/>
+        <FIELD NAME="responsetype" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="correct or incorrect"/>
+        <FIELD NAME="responsetext" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="The response text"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="6" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Order entries were configured in, for stable editing"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="quizquest" TYPE="foreign" FIELDS="quizquest" REFTABLE="quizquest" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="quizquest_responsetype" UNIQUE="false" FIELDS="quizquest, responsetype"/>
       </INDEXES>
     </TABLE>
   </TABLES>

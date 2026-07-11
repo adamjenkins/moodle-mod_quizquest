@@ -104,6 +104,8 @@ function quizquest_add_instance(stdClass $data, ?mod_quizquest_mod_form $mform =
 
     quizquest_grade_item_update($data);
     quizquest_save_progress_images($data);
+    quizquest_save_stepmessages($data);
+    quizquest_save_genericresponses($data);
     quizquest_update_events($data);
 
     return $data->id;
@@ -125,6 +127,8 @@ function quizquest_update_instance(stdClass $data, ?mod_quizquest_mod_form $mfor
 
     quizquest_grade_item_update($data);
     quizquest_save_progress_images($data);
+    quizquest_save_stepmessages($data);
+    quizquest_save_genericresponses($data);
     quizquest_update_events($data);
 
     return true;
@@ -146,6 +150,8 @@ function quizquest_delete_instance($id): bool {
         $DB->delete_records_list('quizquest_responses', 'attemptid', $attemptids);
     }
     $DB->delete_records('quizquest_attempts', ['quizquest' => $quizquest->id]);
+    $DB->delete_records('quizquest_stepmessages', ['quizquest' => $quizquest->id]);
+    $DB->delete_records('quizquest_genericresponses', ['quizquest' => $quizquest->id]);
     $DB->delete_records('event', ['modulename' => 'quizquest', 'instance' => $quizquest->id]);
 
     quizquest_grade_item_delete($quizquest);
@@ -408,6 +414,76 @@ function quizquest_save_progress_images(stdClass $data): void {
         'maxfiles' => QUIZQUEST_MAX_PROGRESS_IMAGES,
         'accepted_types' => ['image'],
     ]);
+}
+
+/**
+ * Replaces an activity's step-triggered narrative messages from submitted form data.
+ *
+ * Blank rows (no step number, or no text in either box) are ignored. Called with the
+ * form's raw repeated fields: stepmsg_step[], stepmsg_before[], stepmsg_after[].
+ *
+ * @param stdClass $data form data containing the id and the stepmsg_* repeated arrays
+ */
+function quizquest_save_stepmessages(stdClass $data): void {
+    global $DB;
+
+    $DB->delete_records('quizquest_stepmessages', ['quizquest' => $data->id]);
+
+    if (empty($data->stepmsg_step)) {
+        return;
+    }
+
+    foreach ($data->stepmsg_step as $i => $rawstep) {
+        $rawstep = trim((string) $rawstep);
+        $before  = trim($data->stepmsg_before[$i] ?? '');
+        $after   = trim($data->stepmsg_after[$i] ?? '');
+
+        if ($rawstep === '' || !ctype_digit($rawstep) || ($before === '' && $after === '')) {
+            continue;
+        }
+
+        $record             = new stdClass();
+        $record->quizquest  = $data->id;
+        $record->step       = (int) $rawstep;
+        $record->textbefore = $before;
+        $record->textafter  = $after;
+        $DB->insert_record('quizquest_stepmessages', $record);
+    }
+}
+
+/**
+ * Replaces an activity's shuffled generic correct/incorrect response pools from submitted form data.
+ *
+ * Blank rows are ignored. Called with the form's raw repeated fields:
+ * correctresponse_text[], incorrectresponse_text[].
+ *
+ * @param stdClass $data form data containing the id and the *response_text repeated arrays
+ */
+function quizquest_save_genericresponses(stdClass $data): void {
+    global $DB;
+
+    $DB->delete_records('quizquest_genericresponses', ['quizquest' => $data->id]);
+
+    $pools = [
+        'correct'   => $data->correctresponse_text ?? [],
+        'incorrect' => $data->incorrectresponse_text ?? [],
+    ];
+
+    foreach ($pools as $type => $texts) {
+        $sortorder = 0;
+        foreach ($texts as $text) {
+            $text = trim($text);
+            if ($text === '') {
+                continue;
+            }
+            $record                = new stdClass();
+            $record->quizquest     = $data->id;
+            $record->responsetype  = $type;
+            $record->responsetext  = $text;
+            $record->sortorder     = $sortorder++;
+            $DB->insert_record('quizquest_genericresponses', $record);
+        }
+    }
 }
 
 /**

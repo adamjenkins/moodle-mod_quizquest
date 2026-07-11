@@ -22,6 +22,7 @@ use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use mod_quizquest\attempt_manager;
+use mod_quizquest\message_bank;
 use mod_quizquest\question_picker;
 
 /**
@@ -116,12 +117,43 @@ class submit_answer extends external_api {
         }
 
         $stepchange = $result['iscorrect'] ? 1 : (empty($quizquest->wrongpenalty) ? 0 : -1);
-        $manager->record_answer($pending, $result['responselabel'], $result['iscorrect'], $stepchange);
+
+        // The shuffled generic-response pool is a fallback, used only when the matched
+        // answer has no feedback text of its own (same precedence as the plain string below).
+        $feedback = $result['feedback'];
+        if ($feedback === '') {
+            $feedback = message_bank::pick_pool_response(
+                $attempt,
+                (int) $quizquest->id,
+                $result['iscorrect'] ? 'correct' : 'incorrect'
+            );
+        }
+        if ($feedback === '') {
+            $feedback = get_string($result['iscorrect'] ? 'feedbackcorrect' : 'feedbackincorrect', 'mod_quizquest');
+        }
+
         $manager->update_tally($attempt, $stepchange);
 
-        $feedback = $result['feedback'] !== ''
-            ? $result['feedback']
-            : get_string($result['iscorrect'] ? 'feedbackcorrect' : 'feedbackincorrect', 'mod_quizquest');
+        // Step messages only fire when a correct answer brings the tally up to the configured step.
+        $textbefore = '';
+        $textafter  = '';
+        if ($stepchange > 0) {
+            $stepmessage = message_bank::get_step_message((int) $quizquest->id, (int) $attempt->stepstally);
+            if ($stepmessage) {
+                $textbefore = (string) $stepmessage->textbefore;
+                $textafter  = (string) $stepmessage->textafter;
+            }
+        }
+
+        $manager->record_answer(
+            $pending,
+            $result['responselabel'],
+            $result['iscorrect'],
+            $stepchange,
+            $feedback,
+            $textbefore,
+            $textafter
+        );
 
         // Complete when the tally reaches the required number of steps.
         $completed = false;
@@ -134,6 +166,8 @@ class submit_answer extends external_api {
 
         $response = [
             'feedback'   => $feedback,
+            'textbefore' => $textbefore,
+            'textafter'  => $textafter,
             'iscorrect'  => $result['iscorrect'],
             'stepchange' => $stepchange,
             'tally'      => (int) $attempt->stepstally,
@@ -157,6 +191,8 @@ class submit_answer extends external_api {
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
             'feedback'   => new external_value(PARAM_RAW, 'Feedback on the submitted answer'),
+            'textbefore' => new external_value(PARAM_RAW, 'Narrative text to show before the feedback (empty if none)'),
+            'textafter'  => new external_value(PARAM_RAW, 'Narrative text to show after the feedback (empty if none)'),
             'iscorrect'  => new external_value(PARAM_BOOL, 'Whether the answer was correct'),
             'stepchange' => new external_value(PARAM_INT, 'Step delta applied this turn'),
             'tally'      => new external_value(PARAM_INT, 'Updated step tally'),

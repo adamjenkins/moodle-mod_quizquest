@@ -130,8 +130,22 @@ function(Ajax, Notification, Templates, Str) {
             });
         })
         .then(function(result) {
-            return renderMessage('assistant', result.feedback)
-            .then(function() {
+            var renderChain = Promise.resolve();
+            if (result.textbefore) {
+                renderChain = renderChain.then(function() {
+                    return renderMessage('assistant', result.textbefore);
+                });
+            }
+            renderChain = renderChain.then(function() {
+                return renderMessage('assistant', result.feedback);
+            });
+            if (result.textafter) {
+                renderChain = renderChain.then(function() {
+                    return renderMessage('assistant', result.textafter);
+                });
+            }
+
+            return renderChain.then(function() {
                 updateProgress(result.tally, result.steps);
                 updateImage(result.tally);
 

@@ -234,17 +234,31 @@ class attempt_manager {
     /**
      * Records the student's answer against a pending question turn.
      *
-     * @param stdClass $pending    The pending quizquest_responses record
-     * @param string   $response   The student's answer (choice label or typed text)
+     * @param stdClass $pending       The pending quizquest_responses record
+     * @param string   $response      The student's answer (choice label or typed text)
      * @param bool     $iscorrect
      * @param int      $stepchange
+     * @param string   $feedbacktext  The exact feedback text shown to the student
+     * @param string   $stepmsgbefore Narrative text shown before the feedback, if any
+     * @param string   $stepmsgafter  Narrative text shown after the feedback, if any
      */
-    public function record_answer(\stdClass $pending, string $response, bool $iscorrect, int $stepchange): void {
+    public function record_answer(
+        \stdClass $pending,
+        string $response,
+        bool $iscorrect,
+        int $stepchange,
+        string $feedbacktext = '',
+        string $stepmsgbefore = '',
+        string $stepmsgafter = ''
+    ): void {
         global $DB;
 
-        $pending->response   = $response;
-        $pending->iscorrect  = $iscorrect ? 1 : 0;
-        $pending->stepchange = $stepchange;
+        $pending->response      = $response;
+        $pending->iscorrect     = $iscorrect ? 1 : 0;
+        $pending->stepchange    = $stepchange;
+        $pending->feedbacktext  = $feedbacktext;
+        $pending->stepmsgbefore = $stepmsgbefore;
+        $pending->stepmsgafter  = $stepmsgafter;
         $DB->update_record('quizquest_responses', $pending);
     }
 
@@ -284,10 +298,21 @@ class attempt_manager {
 
             $messages[] = ['role' => 'assistant', 'message' => $questiontext];
             $messages[] = ['role' => 'user', 'message' => (string) $response->response];
-            $messages[] = [
-                'role'    => 'assistant',
-                'message' => get_string($response->iscorrect ? 'feedbackcorrect' : 'feedbackincorrect', 'mod_quizquest'),
-            ];
+
+            if (!empty($response->stepmsgbefore)) {
+                $messages[] = ['role' => 'assistant', 'message' => $response->stepmsgbefore];
+            }
+
+            // Older rows recorded before this feature was added have no stored feedback text.
+            $feedbacktext = $response->feedbacktext ?? '';
+            if ($feedbacktext === '') {
+                $feedbacktext = get_string($response->iscorrect ? 'feedbackcorrect' : 'feedbackincorrect', 'mod_quizquest');
+            }
+            $messages[] = ['role' => 'assistant', 'message' => $feedbacktext];
+
+            if (!empty($response->stepmsgafter)) {
+                $messages[] = ['role' => 'assistant', 'message' => $response->stepmsgafter];
+            }
         }
 
         return $messages;

@@ -115,18 +115,136 @@ class mod_quizquest_mod_form extends moodleform_mod {
         ]);
         $mform->addHelpButton('progressimages', 'progressimages', 'mod_quizquest');
 
+        $this->definition_stepmessages();
+        $this->definition_genericresponses();
+
         $this->standard_grading_coursemodule_elements();
         $this->standard_coursemodule_elements();
         $this->add_action_buttons();
     }
 
     /**
-     * Prepare existing data (progress images draft area) before the form is rendered.
+     * Adds the repeatable "step message" fields: narrative text inserted before/after
+     * feedback when an attempt's step tally reaches a configured value.
+     */
+    protected function definition_stepmessages(): void {
+        global $DB;
+
+        $mform = $this->_form;
+
+        $mform->addElement('header', 'stepmessagesheader', get_string('stepmessages', 'mod_quizquest'));
+        $mform->addElement('static', 'stepmessagesinfo', '', get_string('stepmessages_help', 'mod_quizquest'));
+
+        $repeatarray = [
+            $mform->createElement('text', 'stepmsg_step', get_string('stepnumber', 'mod_quizquest'), ['size' => 4]),
+            $mform->createElement(
+                'textarea',
+                'stepmsg_before',
+                get_string('textbeforefeedback', 'mod_quizquest'),
+                ['rows' => 2, 'cols' => 50]
+            ),
+            $mform->createElement(
+                'textarea',
+                'stepmsg_after',
+                get_string('textafterfeedback', 'mod_quizquest'),
+                ['rows' => 2, 'cols' => 50]
+            ),
+        ];
+        $repeateloptions = [
+            'stepmsg_step'   => ['type' => PARAM_RAW],
+            'stepmsg_before' => ['type' => PARAM_RAW],
+            'stepmsg_after'  => ['type' => PARAM_RAW],
+        ];
+
+        $existingcount = $this->current->instance
+            ? $DB->count_records('quizquest_stepmessages', ['quizquest' => $this->current->instance])
+            : 0;
+
+        $this->repeat_elements(
+            $repeatarray,
+            max($existingcount + 2, 3),
+            $repeateloptions,
+            'stepmsg_repeats',
+            'stepmsg_add_fields',
+            1,
+            get_string('addstepmessage', 'mod_quizquest'),
+            true
+        );
+    }
+
+    /**
+     * Adds the repeatable "generic response" fields: shuffled pools of fallback
+     * correct/incorrect feedback, used when the matched question answer has none of its own.
+     */
+    protected function definition_genericresponses(): void {
+        global $DB;
+
+        $mform = $this->_form;
+
+        $mform->addElement('header', 'genericresponsesheader', get_string('genericresponses', 'mod_quizquest'));
+        $mform->addElement('static', 'genericresponsesinfo', '', get_string('genericresponses_help', 'mod_quizquest'));
+
+        $existingcorrect = $this->current->instance
+            ? $DB->count_records(
+                'quizquest_genericresponses',
+                ['quizquest' => $this->current->instance, 'responsetype' => 'correct']
+            )
+            : 0;
+        $correctrepeatarray = [
+            $mform->createElement(
+                'textarea',
+                'correctresponse_text',
+                get_string('correctresponses', 'mod_quizquest'),
+                ['rows' => 2, 'cols' => 60]
+            ),
+        ];
+        $this->repeat_elements(
+            $correctrepeatarray,
+            max($existingcorrect + 2, 3),
+            ['correctresponse_text' => ['type' => PARAM_RAW]],
+            'correctresponse_repeats',
+            'correctresponse_add_fields',
+            1,
+            get_string('addcorrectresponse', 'mod_quizquest'),
+            true
+        );
+
+        $existingincorrect = $this->current->instance
+            ? $DB->count_records(
+                'quizquest_genericresponses',
+                ['quizquest' => $this->current->instance, 'responsetype' => 'incorrect']
+            )
+            : 0;
+        $incorrectrepeatarray = [
+            $mform->createElement(
+                'textarea',
+                'incorrectresponse_text',
+                get_string('incorrectresponses', 'mod_quizquest'),
+                ['rows' => 2, 'cols' => 60]
+            ),
+        ];
+        $this->repeat_elements(
+            $incorrectrepeatarray,
+            max($existingincorrect + 2, 3),
+            ['incorrectresponse_text' => ['type' => PARAM_RAW]],
+            'incorrectresponse_repeats',
+            'incorrectresponse_add_fields',
+            1,
+            get_string('addincorrectresponse', 'mod_quizquest'),
+            true
+        );
+    }
+
+    /**
+     * Prepare existing data (progress images draft area, step messages, generic
+     * response pools) before the form is rendered.
      *
      * @param array $defaultvalues form default values
      */
     public function data_preprocessing(&$defaultvalues) {
         parent::data_preprocessing($defaultvalues);
+
+        global $DB;
 
         $draftitemid = file_get_submitted_draft_itemid('progressimages');
         if ($this->current->instance) {
@@ -136,6 +254,41 @@ class mod_quizquest_mod_form extends moodleform_mod {
             ]);
         }
         $defaultvalues['progressimages'] = $draftitemid;
+
+        if (!$this->current->instance) {
+            return;
+        }
+
+        $stepmessages = $DB->get_records('quizquest_stepmessages', ['quizquest' => $this->current->instance], 'step ASC');
+        $i = 0;
+        foreach ($stepmessages as $stepmessage) {
+            $defaultvalues['stepmsg_step'][$i]   = $stepmessage->step;
+            $defaultvalues['stepmsg_before'][$i] = $stepmessage->textbefore;
+            $defaultvalues['stepmsg_after'][$i]  = $stepmessage->textafter;
+            $i++;
+        }
+
+        $correct = $DB->get_records(
+            'quizquest_genericresponses',
+            ['quizquest' => $this->current->instance, 'responsetype' => 'correct'],
+            'sortorder ASC, id ASC'
+        );
+        $i = 0;
+        foreach ($correct as $response) {
+            $defaultvalues['correctresponse_text'][$i] = $response->responsetext;
+            $i++;
+        }
+
+        $incorrect = $DB->get_records(
+            'quizquest_genericresponses',
+            ['quizquest' => $this->current->instance, 'responsetype' => 'incorrect'],
+            'sortorder ASC, id ASC'
+        );
+        $i = 0;
+        foreach ($incorrect as $response) {
+            $defaultvalues['incorrectresponse_text'][$i] = $response->responsetext;
+            $i++;
+        }
     }
 
     /**
@@ -162,6 +315,35 @@ class mod_quizquest_mod_form extends moodleform_mod {
         // Check open and close times are consistent.
         if (!empty($data['timeopen']) && !empty($data['timeclose']) && $data['timeclose'] < $data['timeopen']) {
             $errors['timeclose'] = get_string('closebeforeopen', 'mod_quizquest');
+        }
+
+        // Step messages: step numbers must be valid, within range, unique, and have some text.
+        $seensteps = [];
+        foreach ($data['stepmsg_step'] ?? [] as $i => $rawstep) {
+            $rawstep = trim((string) $rawstep);
+            $before  = trim($data['stepmsg_before'][$i] ?? '');
+            $after   = trim($data['stepmsg_after'][$i] ?? '');
+
+            if ($rawstep === '' && $before === '' && $after === '') {
+                continue;
+            }
+
+            if ($rawstep === '' || !ctype_digit($rawstep) || (int) $rawstep < 1 || (int) $rawstep > $steps) {
+                $errors["stepmsg_step[$i]"] = get_string('error:stepmessagestepinvalid', 'mod_quizquest');
+                continue;
+            }
+
+            if ($before === '' && $after === '') {
+                $errors["stepmsg_before[$i]"] = get_string('error:stepmessageempty', 'mod_quizquest');
+                continue;
+            }
+
+            $step = (int) $rawstep;
+            if (isset($seensteps[$step])) {
+                $errors["stepmsg_step[$i]"] = get_string('error:stepmessageduplicate', 'mod_quizquest');
+                continue;
+            }
+            $seensteps[$step] = true;
         }
 
         return $errors;
