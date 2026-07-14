@@ -137,7 +137,8 @@
         <span class="text-muted">{{waitinglabel}}</span>
     </div>
 
-    <div id="quizquest-choices" class="quizquest-choices d-flex gap-2 flex-wrap mb-3 d-none"></div>
+    {{! Right-aligned like the student's own chat bubbles: the choices are the student's side of the conversation. }}
+    <div id="quizquest-choices" class="quizquest-choices d-flex gap-2 flex-wrap justify-content-end mb-3 d-none"></div>
 
     <div id="quizquest-freetext-area" class="input-group mb-3 d-none">
         <textarea id="quizquest-freetext"
