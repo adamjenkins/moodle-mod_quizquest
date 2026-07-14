@@ -75,7 +75,15 @@ class mod_quizquest_mod_form extends moodleform_mod {
         $questionbankoptions = $this->get_question_bank_options();
 
         $defaultbankcontextid = 0;
-        if ($this->current->instance && !empty($this->current->questioncategoryid)) {
+        // On submission, render the categories of the bank the teacher actually chose:
+        // formslib only exports select values that are among the server-registered
+        // options, so the options swapped in client-side by bankpicker.js must be
+        // re-registered here or the submitted category is silently discarded.
+        $submittedbankcontextid = optional_param('questionbank', 0, PARAM_INT);
+        if ($submittedbankcontextid && array_key_exists($submittedbankcontextid, $questionbankoptions)) {
+            $defaultbankcontextid = $submittedbankcontextid;
+        }
+        if (!$defaultbankcontextid && $this->current->instance && !empty($this->current->questioncategoryid)) {
             $parts = explode(',', (string) $this->current->questioncategoryid);
             $defaultbankcontextid = (int) ($parts[1] ?? 0);
         }
