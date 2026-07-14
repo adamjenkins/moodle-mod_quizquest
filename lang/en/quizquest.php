@@ -67,8 +67,19 @@ $string['exitfullscreen'] = 'Exit fullscreen';
 $string['feedbackcorrect'] = 'Correct! You move a step closer to your goal.';
 $string['feedbackincorrect'] = 'Not quite.';
 $string['gamesettings'] = 'Game settings';
+$string['genericresponsedisplay'] = 'Display generic responses';
+$string['genericresponsedisplay_after'] = 'After question feedback';
+$string['genericresponsedisplay_before'] = 'Before question feedback';
+$string['genericresponsedisplay_help'] = 'When to show a generic response alongside the feedback of the matched question answer:
+
+* *Only when question feedback is absent* – a generic response is used as a fallback when the answer has no feedback text of its own.
+* *Never* – generic responses are not shown, even when the answer has no feedback.
+* *Before question feedback* – a generic response is shown, followed by the question feedback.
+* *After question feedback* – the question feedback is shown, followed by a generic response.';
+$string['genericresponsedisplay_never'] = 'Never';
+$string['genericresponsedisplay_whennofeedback'] = 'Only when question feedback is absent';
 $string['genericresponses'] = 'Generic responses';
-$string['genericresponses_help'] = 'Optional pools of fallback feedback shown when the matched question answer has no feedback text of its own. Each turn, a random unused response is shown from the relevant pool; once every response in a pool has been shown, it reshuffles. Leave both pools empty to keep using the default "Correct!"/"Not quite" messages.';
+$string['genericresponses_help'] = 'Optional pools of generic feedback. The "Display generic responses" setting controls when a pool response is shown relative to the feedback of the matched question answer. Each turn, a random unused response is drawn from the relevant pool; once every response in a pool has been shown, it reshuffles. Leave both pools empty to keep using the default "Correct!"/"Not quite" messages.';
 $string['includesubcategories'] = 'Include questions from subcategories';
 $string['includesubcategories_help'] = 'When enabled, questions are also drawn from every subcategory beneath the selected question category, not just the category itself.';
 $string['incorrectresponses'] = 'Incorrect-answer responses';

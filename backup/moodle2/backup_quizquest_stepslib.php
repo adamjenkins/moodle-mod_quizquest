@@ -40,7 +40,7 @@ class backup_quizquest_activity_structure_step extends backup_activity_structure
         $quizquest = new backup_nested_element('quizquest', ['id'], [
             'name', 'intro', 'introformat', 'questioncategoryid', 'includesubcategories',
             'steps', 'grade', 'maxattempts', 'showprogress', 'allowstudentreview',
-            'partialscoreonquit', 'wrongpenalty', 'timeopen', 'timeclose',
+            'partialscoreonquit', 'wrongpenalty', 'genericresponsedisplay', 'timeopen', 'timeclose',
             'timecreated', 'timemodified',
         ]);
 

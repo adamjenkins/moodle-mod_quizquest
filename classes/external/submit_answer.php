@@ -118,19 +118,10 @@ class submit_answer extends external_api {
 
         $stepchange = $result['iscorrect'] ? 1 : (empty($quizquest->wrongpenalty) ? 0 : -1);
 
-        // The shuffled generic-response pool is a fallback, used only when the matched
-        // answer has no feedback text of its own (same precedence as the plain string below).
-        $feedback = $result['feedback'];
-        if ($feedback === '') {
-            $feedback = message_bank::pick_pool_response(
-                $attempt,
-                (int) $quizquest->id,
-                $result['iscorrect'] ? 'correct' : 'incorrect'
-            );
-        }
-        if ($feedback === '') {
-            $feedback = get_string($result['iscorrect'] ? 'feedbackcorrect' : 'feedbackincorrect', 'mod_quizquest');
-        }
+        // Combine the answer's own feedback with a shuffled generic-response pool
+        // entry per the activity's display mode. This may consume the attempt's
+        // pool queue, which update_tally below persists.
+        $feedback = message_bank::assemble_feedback($quizquest, $attempt, $result['feedback'], $result['iscorrect']);
 
         $manager->update_tally($attempt, $stepchange);
 

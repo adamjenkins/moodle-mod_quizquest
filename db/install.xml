@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="mod/quizquest/db" VERSION="2026071105" COMMENT="XMLDB file for Moodle mod/quizquest"
+<XMLDB PATH="mod/quizquest/db" VERSION="2026071400" COMMENT="XMLDB file for Moodle mod/quizquest"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
   <TABLES>
@@ -19,6 +19,7 @@
         <FIELD NAME="allowstudentreview" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Whether students can review their own past attempts"/>
         <FIELD NAME="partialscoreonquit" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Award partial score proportional to progress when student quits"/>
         <FIELD NAME="wrongpenalty" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Whether a wrong answer subtracts a step from the tally"/>
+        <FIELD NAME="genericresponsedisplay" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="When to show a generic response relative to question feedback: 0 only when feedback absent, 1 never, 2 before, 3 after"/>
         <FIELD NAME="timeopen" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Time the activity opens for attempts; 0 means no restriction"/>
         <FIELD NAME="timeclose" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0" COMMENT="Time the activity closes; open attempts are abandoned after this; 0 means no restriction"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" DEFAULT="0"/>

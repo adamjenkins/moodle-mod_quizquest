@@ -110,4 +110,110 @@ final class message_bank_test extends advanced_testcase {
             message_bank::pick_pool_response($attempt, (int) $quizquest->id, 'correct')
         );
     }
+
+    /**
+     * Creates a fresh attempt stub for assemble_feedback tests.
+     *
+     * @return stdClass
+     */
+    protected function new_attempt(): \stdClass {
+        return (object) ['correctpoolqueue' => '', 'incorrectpoolqueue' => ''];
+    }
+
+    /**
+     * Default mode: the pool is a fallback used only when question feedback is absent.
+     */
+    public function test_assemble_feedback_when_no_feedback_mode(): void {
+        $this->resetAfterTest();
+        $quizquest = $this->create_with_pool(['Nice one!']);
+        $quizquest->genericresponsedisplay = message_bank::DISPLAY_WHEN_NO_FEEDBACK;
+
+        $this->assertSame(
+            'Well done',
+            message_bank::assemble_feedback($quizquest, $this->new_attempt(), 'Well done', true)
+        );
+        $this->assertSame(
+            'Nice one!',
+            message_bank::assemble_feedback($quizquest, $this->new_attempt(), '', true)
+        );
+    }
+
+    /**
+     * Never mode: the pool is not used even when question feedback is absent,
+     * and its shuffle queue is not consumed.
+     */
+    public function test_assemble_feedback_never_mode(): void {
+        $this->resetAfterTest();
+        $quizquest = $this->create_with_pool(['Nice one!', 'Sweet!']);
+        $quizquest->genericresponsedisplay = message_bank::DISPLAY_NEVER;
+        $attempt = $this->new_attempt();
+
+        $this->assertSame(
+            'Well done',
+            message_bank::assemble_feedback($quizquest, $attempt, 'Well done', true)
+        );
+        $this->assertSame(
+            get_string('feedbackcorrect', 'mod_quizquest'),
+            message_bank::assemble_feedback($quizquest, $attempt, '', true)
+        );
+        $this->assertSame('', $attempt->correctpoolqueue);
+    }
+
+    /**
+     * Before mode: generic response then question feedback, as one string with
+     * a blank-line separator.
+     */
+    public function test_assemble_feedback_before_mode(): void {
+        $this->resetAfterTest();
+        $quizquest = $this->create_with_pool(['Nice one!']);
+        $quizquest->genericresponsedisplay = message_bank::DISPLAY_BEFORE;
+
+        $this->assertSame(
+            "Nice one!\n\nWell done",
+            message_bank::assemble_feedback($quizquest, $this->new_attempt(), 'Well done', true)
+        );
+        // Absent question feedback: the generic response stands alone.
+        $this->assertSame(
+            'Nice one!',
+            message_bank::assemble_feedback($quizquest, $this->new_attempt(), '', true)
+        );
+    }
+
+    /**
+     * After mode: question feedback then generic response.
+     */
+    public function test_assemble_feedback_after_mode(): void {
+        $this->resetAfterTest();
+        $quizquest = $this->create_with_pool(['Nice one!']);
+        $quizquest->genericresponsedisplay = message_bank::DISPLAY_AFTER;
+
+        $this->assertSame(
+            "Well done\n\nNice one!",
+            message_bank::assemble_feedback($quizquest, $this->new_attempt(), 'Well done', true)
+        );
+    }
+
+    /**
+     * An empty pool in before/after modes leaves the question feedback alone,
+     * and the plain fallback string covers the everything-empty case.
+     */
+    public function test_assemble_feedback_empty_pool_and_fallback(): void {
+        $this->resetAfterTest();
+        $quizquest = $this->create_with_pool([]);
+        $quizquest->genericresponsedisplay = message_bank::DISPLAY_BEFORE;
+
+        $this->assertSame(
+            'Well done',
+            message_bank::assemble_feedback($quizquest, $this->new_attempt(), 'Well done', true)
+        );
+        $this->assertSame(
+            get_string('feedbackcorrect', 'mod_quizquest'),
+            message_bank::assemble_feedback($quizquest, $this->new_attempt(), '', true)
+        );
+        // The incorrect pool is empty too: incorrect answers get the incorrect fallback.
+        $this->assertSame(
+            get_string('feedbackincorrect', 'mod_quizquest'),
+            message_bank::assemble_feedback($quizquest, $this->new_attempt(), '', false)
+        );
+    }
 }

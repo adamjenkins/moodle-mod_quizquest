@@ -227,6 +227,24 @@ class mod_quizquest_mod_form extends moodleform_mod {
         $mform->addElement('header', 'genericresponsesheader', get_string('genericresponses', 'mod_quizquest'));
         $mform->addElement('static', 'genericresponsesinfo', '', get_string('genericresponses_help', 'mod_quizquest'));
 
+        $mform->addElement(
+            'select',
+            'genericresponsedisplay',
+            get_string('genericresponsedisplay', 'mod_quizquest'),
+            [
+                \mod_quizquest\message_bank::DISPLAY_WHEN_NO_FEEDBACK =>
+                    get_string('genericresponsedisplay_whennofeedback', 'mod_quizquest'),
+                \mod_quizquest\message_bank::DISPLAY_NEVER =>
+                    get_string('genericresponsedisplay_never', 'mod_quizquest'),
+                \mod_quizquest\message_bank::DISPLAY_BEFORE =>
+                    get_string('genericresponsedisplay_before', 'mod_quizquest'),
+                \mod_quizquest\message_bank::DISPLAY_AFTER =>
+                    get_string('genericresponsedisplay_after', 'mod_quizquest'),
+            ]
+        );
+        $mform->setDefault('genericresponsedisplay', \mod_quizquest\message_bank::DISPLAY_WHEN_NO_FEEDBACK);
+        $mform->addHelpButton('genericresponsedisplay', 'genericresponsedisplay', 'mod_quizquest');
+
         $existingcorrect = $this->current->instance
             ? $DB->count_records(
                 'quizquest_genericresponses',

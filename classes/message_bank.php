@@ -25,6 +25,18 @@ namespace mod_quizquest;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class message_bank {
+    /** @var int Show a generic response only when the question has no feedback of its own (default). */
+    public const DISPLAY_WHEN_NO_FEEDBACK = 0;
+
+    /** @var int Never show a generic response. */
+    public const DISPLAY_NEVER = 1;
+
+    /** @var int Show a generic response before the question feedback. */
+    public const DISPLAY_BEFORE = 2;
+
+    /** @var int Show a generic response after the question feedback. */
+    public const DISPLAY_AFTER = 3;
+
     /**
      * Returns the step message configured for a given step tally, if any.
      *
@@ -77,5 +89,49 @@ class message_bank {
         $attempt->{$field} = implode(',', $queue);
 
         return (string) $pool[$nextid]->responsetext;
+    }
+
+    /**
+     * Builds the feedback text for an answer, combining the question's own
+     * feedback with a generic pool response per the activity's display mode.
+     *
+     * The attempt's pool queue may be consumed (mutated in place, like
+     * pick_pool_response); the caller is responsible for persisting the
+     * attempt record. The plain language-string fallback is used when the
+     * assembled text would otherwise be empty.
+     *
+     * @param stdClass $quizquest        The activity record (id + genericresponsedisplay)
+     * @param stdClass $attempt          The attempt record (pool queue fields updated in place)
+     * @param string   $questionfeedback The matched answer's own feedback text ('' if none)
+     * @param bool     $iscorrect        Whether the answer was correct
+     * @return string The feedback text to show
+     */
+    public static function assemble_feedback(
+        \stdClass $quizquest,
+        \stdClass $attempt,
+        string $questionfeedback,
+        bool $iscorrect
+    ): string {
+        $mode = (int) ($quizquest->genericresponsedisplay ?? self::DISPLAY_WHEN_NO_FEEDBACK);
+        $type = $iscorrect ? 'correct' : 'incorrect';
+
+        $generic = '';
+        if (
+            $mode === self::DISPLAY_BEFORE || $mode === self::DISPLAY_AFTER
+                || ($mode === self::DISPLAY_WHEN_NO_FEEDBACK && $questionfeedback === '')
+        ) {
+            $generic = self::pick_pool_response($attempt, (int) $quizquest->id, $type);
+        }
+
+        $parts = $mode === self::DISPLAY_BEFORE
+            ? [$generic, $questionfeedback]
+            : [$questionfeedback, $generic];
+        $feedback = implode("\n\n", array_filter($parts, static fn($part) => $part !== ''));
+
+        if ($feedback === '') {
+            $feedback = get_string($iscorrect ? 'feedbackcorrect' : 'feedbackincorrect', 'mod_quizquest');
+        }
+
+        return $feedback;
     }
 }
