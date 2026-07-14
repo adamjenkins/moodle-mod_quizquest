@@ -2,6 +2,20 @@
 
 All notable changes to `mod_quizquest` are documented in this file.
 
+## [0.6.0] - 2026-07-14
+
+### Added
+
+- **Generic response display modes**: a "Display generic responses" select in the Generic responses settings section controls when a pool response appears relative to the matched answer's own feedback — only when question feedback is absent (default, the previous behaviour), never, before the question feedback, or after it. In the before/after modes both texts are shown in one feedback bubble separated by a blank line; the stored per-turn text, chat replay and review pages are unchanged.
+
+### Changed
+
+- The answer choice buttons are right-aligned, matching the student's own chat bubbles (the choices are the student's side of the conversation).
+
+### Fixed
+
+- **Category from a switched bank was rejected on save**: choosing a category after changing the "Question bank" select failed validation with "The selected category contains no … questions" even for categories full of eligible questions. The category options swapped in client-side by the bank picker were never registered server-side, so formslib discarded the submitted value; the form now re-registers the submitted bank's categories before processing the submission.
+
 ## [0.5.0] - 2026-07-11
 
 ### Added

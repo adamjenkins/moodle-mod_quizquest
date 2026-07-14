@@ -28,4 +28,4 @@ $plugin->component = 'mod_quizquest';
 $plugin->version   = 2026071400; // The current module version (Date: YYYYMMDDXX).
 $plugin->requires  = 2025041400; // Moodle 5.0.
 $plugin->maturity  = MATURITY_BETA;
-$plugin->release   = '0.5.0';
+$plugin->release   = '0.6.0';
