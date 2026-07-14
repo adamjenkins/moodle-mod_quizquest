@@ -218,4 +218,28 @@ final class lib_test extends advanced_testcase {
         $this->assertEquals($timeopen, $info->customdata['timeopen']);
         $this->assertArrayNotHasKey('timeclose', $info->customdata);
     }
+
+    /**
+     * When "Display description on course page" is enabled, the course-module
+     * info carries the formatted intro so the course page can show it.
+     */
+    public function test_get_coursemodule_info_showdescription(): void {
+        $this->resetAfterTest();
+        [, $quizquest] = $this->create_setup([
+            'intro' => '<p>A schoolgirl who needs study help.</p>',
+            'introformat' => FORMAT_HTML,
+            'showdescription' => 1,
+        ]);
+
+        $cm = get_coursemodule_from_instance('quizquest', $quizquest->id);
+        $info = quizquest_get_coursemodule_info($cm);
+        $this->assertStringContainsString('A schoolgirl who needs study help.', (string) $info->content);
+
+        // Without the toggle the content stays empty.
+        $DB = $GLOBALS['DB'];
+        $DB->set_field('course_modules', 'showdescription', 0, ['id' => $cm->id]);
+        $cm = get_coursemodule_from_instance('quizquest', $quizquest->id);
+        $info = quizquest_get_coursemodule_info($cm);
+        $this->assertEmpty($info->content);
+    }
 }

@@ -64,13 +64,22 @@ function quizquest_supports($feature) {
 function quizquest_get_coursemodule_info($coursemodule) {
     global $DB;
 
-    $quizquest = $DB->get_record('quizquest', ['id' => $coursemodule->instance], 'id, name, timeopen, timeclose');
+    $quizquest = $DB->get_record(
+        'quizquest',
+        ['id' => $coursemodule->instance],
+        'id, name, intro, introformat, timeopen, timeclose'
+    );
     if (!$quizquest) {
         return null;
     }
 
     $info = new cached_cm_info();
     $info->name = $quizquest->name;
+
+    if ($coursemodule->showdescription) {
+        // Convert intro to html. Do not filter cached version: filters run at display time.
+        $info->content = format_module_intro('quizquest', $quizquest, $coursemodule->id, false);
+    }
 
     if ($coursemodule->completion == COMPLETION_TRACKING_AUTOMATIC) {
         $info->customdata['customcompletionrules']['completioncompleted'] = 1;
