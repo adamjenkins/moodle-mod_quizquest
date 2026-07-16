@@ -2,6 +2,12 @@
 
 All notable changes to `mod_quizquest` are documented in this file.
 
+## [0.6.1] - 2026-07-16
+
+### Fixed
+
+- **"Display description on course page" had no effect**: `quizquest_get_coursemodule_info()` never populated the cached course-module content, so the enabled option showed nothing. The description now appears under the activity link on the course page, formatted from the intro as core modules do.
+
 ## [0.6.0] - 2026-07-14
 
 ### Added
