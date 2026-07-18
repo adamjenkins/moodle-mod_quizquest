@@ -67,6 +67,11 @@ class restore_quizquest_activity_structure_step extends restore_activity_structu
         $data->course = $this->get_courseid();
         $data->timeopen = $this->apply_date_offset($data->timeopen ?? 0);
         $data->timeclose = $this->apply_date_offset($data->timeclose ?? 0);
+        // A .mbz is attacker-controlled input: re-apply the same PARAM_TEXT
+        // cleaning the settings form applies to this field (mod_form.php's
+        // 'name' element) so a crafted backup can't smuggle in markup that a
+        // future, less-careful output path might fail to escape.
+        $data->name = clean_param((string) ($data->name ?? ''), PARAM_TEXT);
         // The questioncategoryid reference is restored raw here; the task's
         // after_restore() remaps it once every activity (incl. qbanks) is in.
 
@@ -84,6 +89,11 @@ class restore_quizquest_activity_structure_step extends restore_activity_structu
 
         $data = (object) $data;
         $data->quizquest = $this->get_new_parentid('quizquest');
+        // A .mbz is attacker-controlled input: re-apply the same PARAM_TEXT
+        // cleaning the settings form applies to these fields (mod_form.php's
+        // stepmsg_before/stepmsg_after repeated elements).
+        $data->textbefore = clean_param((string) ($data->textbefore ?? ''), PARAM_TEXT);
+        $data->textafter = clean_param((string) ($data->textafter ?? ''), PARAM_TEXT);
         $DB->insert_record('quizquest_stepmessages', $data);
     }
 
@@ -97,6 +107,10 @@ class restore_quizquest_activity_structure_step extends restore_activity_structu
 
         $data = (object) $data;
         $data->quizquest = $this->get_new_parentid('quizquest');
+        // A .mbz is attacker-controlled input: re-apply the same PARAM_TEXT
+        // cleaning the settings form applies to this field (mod_form.php's
+        // correctresponse_text/incorrectresponse_text repeated elements).
+        $data->responsetext = clean_param((string) ($data->responsetext ?? ''), PARAM_TEXT);
         $DB->insert_record('quizquest_genericresponses', $data);
     }
 

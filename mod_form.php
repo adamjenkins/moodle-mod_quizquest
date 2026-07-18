@@ -154,7 +154,12 @@ class mod_quizquest_mod_form extends moodleform_mod {
             'subdirs' => 0,
             'maxfiles' => QUIZQUEST_MAX_PROGRESS_IMAGES,
             'maxbytes' => $COURSE->maxbytes,
-            'accepted_types' => ['image'],
+            // Raster only (core's own 'optimised_image' group: gif/jpe/jpeg/jpg/png/webp).
+            // The generic 'image' group also includes svg, which is script-capable XML:
+            // these files are served inline (send_stored_file with $forcedownload = false)
+            // to anyone with mod/quizquest:view, so allowing svg here would let a teacher
+            // upload a stored-XSS payload that runs when a student opens the file URL.
+            'accepted_types' => ['optimised_image'],
         ]);
         $mform->addHelpButton('progressimages', 'progressimages', 'mod_quizquest');
 
