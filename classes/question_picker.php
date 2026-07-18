@@ -92,6 +92,56 @@ class question_picker {
     }
 
     /**
+     * Returns the question_bank_entries ids backing get_eligible_question_ids()'s
+     * result set — what backup needs to annotate (core's backup categorizes
+     * and includes question bank content by 'question_bank_entry' id, not by
+     * question id; see backup_question_dbops::calculate_question_categories()).
+     *
+     * @param int  $categoryid           Question category id
+     * @param bool $includesubcategories Whether to also include questions from subcategories
+     * @return int[] question_bank_entries ids
+     */
+    public static function get_eligible_bank_entry_ids(int $categoryid, bool $includesubcategories = false): array {
+        global $CFG, $DB;
+
+        if (!$categoryid) {
+            return [];
+        }
+
+        $categoryids = [$categoryid];
+        if ($includesubcategories) {
+            require_once($CFG->libdir . '/questionlib.php');
+            $categoryids = question_categorylist($categoryid);
+        }
+
+        [$insql, $inparams] = $DB->get_in_or_equal($categoryids, SQL_PARAMS_NAMED);
+
+        $sql = "SELECT qbe.id
+                  FROM {question_bank_entries} qbe
+                  JOIN {question_versions} qv ON qv.questionbankentryid = qbe.id
+                  JOIN {question} q ON q.id = qv.questionid
+             LEFT JOIN {qtype_multichoice_options} mco
+                       ON q.qtype = 'multichoice' AND mco.questionid = q.id
+                 WHERE qbe.questioncategoryid $insql
+                   AND q.qtype IN ('multichoice', 'shortanswer')
+                   AND (q.qtype <> 'multichoice' OR mco.single = 1)
+                   AND qv.status = :readystatus
+                   AND qv.version = (
+                        SELECT MAX(v.version)
+                          FROM {question_versions} v
+                         WHERE v.questionbankentryid = qbe.id
+                           AND v.status = :readystatus2
+                   )";
+
+        $params = array_merge($inparams, [
+            'readystatus'  => 'ready',
+            'readystatus2' => 'ready',
+        ]);
+
+        return array_keys($DB->get_records_sql($sql, $params));
+    }
+
+    /**
      * Picks the next question to ask, preferring unseen questions.
      *
      * Preference order:

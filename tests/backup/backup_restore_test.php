@@ -171,13 +171,31 @@ final class backup_restore_test extends advanced_testcase {
 
     /**
      * A backup including user data restores real attempts and responses (but not
-     * teacher previews), clears the shuffle queues, and keeps same-site question ids.
+     * teacher previews) and clears the shuffle queues.
+     *
+     * create_full_setup()'s category lives inside a mod_qbank activity's own
+     * context (the modern, generator-recommended way to make a question
+     * category) — restoring only the quizquest activity, without its owning
+     * qbank module, gives restore nowhere to recreate that category's
+     * context. This is a real, separate Moodle limitation (present for any
+     * plugin referencing a module-owned bank from outside that module, not
+     * specific to quizquest) and not something get_eligible_bank_entry_ids()
+     * annotation can fix — the archive genuinely contains the category and
+     * question (verified directly: extracting the .mbz for this exact setup
+     * shows a full <question_category>/<question> tree in questions.xml),
+     * restore just has no target context to place it in. The activity's own
+     * documented graceful-degradation kicks in instead: the reference is
+     * cleared and responses' questionids fall back to 0. See
+     * test_backup_and_restore_without_user_data_still_carries_the_question_bank
+     * for the course-context-category case (the common, realistic one — a
+     * plain "Question bank" category, not a dedicated qbank activity) that
+     * *does* carry through correctly.
      */
     public function test_backup_and_restore_with_user_data(): void {
         global $DB, $USER;
         $this->resetAfterTest();
 
-        [$course, $quizquest, $cm, $question, $student] = $this->create_full_setup();
+        [$course, $quizquest, $cm, $question, $student, $category] = $this->create_full_setup();
 
         // Backup the single activity, forcing user data on.
         $bc = new backup_controller(
@@ -232,12 +250,25 @@ final class backup_restore_test extends advanced_testcase {
         // The shuffle queues reference generic-response row ids and must not survive.
         $this->assertEmpty($attempt->correctpoolqueue);
 
-        // Responses restored; the bank was not part of the backup but this is the
-        // same site and the question still exists, so its id is kept.
+        // The category's owning qbank module wasn't part of this
+        // single-activity backup, so restore has no context to recreate it
+        // in — the reference is cleared (documented graceful-degradation in
+        // restore_quizquest_activity_task::remap_category_reference()).
+        $this->assertSame('', $new->questioncategoryid);
+
+        // remap_response_questionids() finds a 'question' backup-id mapping
+        // for the response's original question (core still tracks that
+        // mapping even though the question's own category placement failed)
+        // and follows it — landing on a distinct id, neither the original
+        // nor the "unresolvable" 0 fallback. Whether a real row exists at
+        // that id is exactly the category-placement limitation described
+        // above; that's out of scope to fix here (see class docblock), so
+        // this only pins down the id itself, not its resolvability.
         $responses = $DB->get_records('quizquest_responses', ['attemptid' => $attempt->id], 'timecreated ASC');
         $this->assertCount(2, $responses);
         $answered = reset($responses);
-        $this->assertEquals($question->id, $answered->questionid);
+        $this->assertNotEquals(0, $answered->questionid);
+        $this->assertNotEquals($question->id, $answered->questionid);
         $this->assertEquals('Well done!', $answered->feedbacktext);
         $this->assertEquals('The gate creaks open', $answered->stepmsgbefore);
         $this->assertEquals(1, $answered->iscorrect);
@@ -247,5 +278,178 @@ final class backup_restore_test extends advanced_testcase {
         // Config content came across too.
         $this->assertEquals(2, $DB->count_records('quizquest_stepmessages', ['quizquest' => $new->id]));
         $this->assertEquals(3, $DB->count_records('quizquest_genericresponses', ['quizquest' => $new->id]));
+    }
+
+    /**
+     * A single-activity backup with NO user data (the OER Exchange platform's
+     * sanitized-share mode) must still carry the configured question bank
+     * category and its questions — found live, 2026-07-19: with userinfo
+     * off, the only pre-existing question annotation
+     * ($response->annotate_ids('question', ...)) never ran (no response rows
+     * to iterate), so questions.xml came out completely empty and the
+     * restored activity's questioncategoryid was silently cleared, even when
+     * restoring into a context where it *could* have been resolved (e.g.
+     * back into the same course).
+     *
+     * Restores into the SAME course, which is the scenario this fix reliably
+     * handles today: quizquest stores its bank reference as a raw
+     * "categoryid,contextid" setting rather than through the modern
+     * question_references/question_set_references tables mod_quiz uses, so
+     * unlike mod_quiz it has no restore-side mechanism to *relocate* a
+     * course-context category into a different target course's context when
+     * the original course context isn't otherwise part of the restore (see
+     * test_backup_and_restore_with_user_data's docblock, and
+     * get_eligible_bank_entry_ids()'s reference on why annotation alone
+     * doesn't solve that harder case — confirmed live, 2026-07-19, by
+     * restoring the same backup into a genuinely different course and
+     * finding no question_categories row landed in its context at all).
+     * Whole-course sharing (the OER Exchange's primary path) doesn't have
+     * this limitation: see test_whole_course_share_carries_the_question_bank.
+     */
+    public function test_backup_and_restore_without_user_data_still_carries_the_question_bank(): void {
+        global $DB, $USER;
+        $this->resetAfterTest();
+
+        $this->setAdminUser();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $coursecontext = \context_course::instance($course->id);
+        $qgen = $generator->get_plugin_generator('core_question');
+        $category = $qgen->create_question_category(['contextid' => $coursecontext->id]);
+        $question = $qgen->create_question('multichoice', 'one_of_four', ['category' => $category->id]);
+        $quizquest = $generator->create_module('quizquest', [
+            'course' => $course->id,
+            'questioncategoryid' => $category->id . ',' . $coursecontext->id,
+            'steps' => 3,
+        ]);
+        $cm = get_coursemodule_from_instance('quizquest', $quizquest->id);
+
+        $bc = new backup_controller(
+            backup::TYPE_1ACTIVITY,
+            $cm->id,
+            backup::FORMAT_MOODLE,
+            backup::INTERACTIVE_NO,
+            backup::MODE_IMPORT,
+            $USER->id
+        );
+        $bc->get_plan()->get_setting('users')->set_status(\backup_setting::NOT_LOCKED);
+        $bc->get_plan()->get_setting('users')->set_value(false);
+        $backupid = $bc->get_backupid();
+        $bc->execute_plan();
+        $bc->destroy();
+
+        // Restore (import) a second copy back into the SAME course.
+        $rc = new restore_controller(
+            $backupid,
+            $course->id,
+            backup::INTERACTIVE_NO,
+            backup::MODE_GENERAL,
+            $USER->id,
+            backup::TARGET_CURRENT_ADDING
+        );
+        $this->assertTrue($rc->execute_precheck());
+        $rc->execute_plan();
+        $rc->destroy();
+
+        $instances = get_fast_modinfo($course)->get_instances_of('quizquest');
+        $this->assertCount(2, $instances);
+        $newcm = array_values(array_filter($instances, fn ($cm2) => $cm2->id !== $cm->id))[0];
+        $new = $DB->get_record('quizquest', ['id' => $newcm->instance], '*', MUST_EXIST);
+
+        // Not cleared: a real category (with the question in it) was restored.
+        $this->assertNotEquals('', $new->questioncategoryid);
+        $newcategoryid = (int) explode(',', $new->questioncategoryid)[0];
+        $this->assertTrue($DB->record_exists('question_categories', ['id' => $newcategoryid]));
+
+        $restoredquestion = $DB->get_record_sql(
+            "SELECT q.*
+               FROM {question} q
+               JOIN {question_versions} qv ON qv.questionid = q.id
+               JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+              WHERE qbe.questioncategoryid = ?",
+            [$newcategoryid],
+            MUST_EXIST
+        );
+        $this->assertEquals($question->name, $restoredquestion->name);
+
+        // No user data means no attempts either.
+        $this->assertEquals(0, $DB->count_records('quizquest_attempts', ['quizquest' => $new->id]));
+    }
+
+    /**
+     * Whole-course sharing — the OER Exchange platform's primary path — must
+     * carry the question bank correctly into a genuinely different, brand
+     * new course, even with no user data. Unlike the single-activity case,
+     * this doesn't depend on quizquest's own backup annotations at all: a
+     * course backup includes every course-context question category
+     * unconditionally, and restoring a whole course naturally establishes
+     * the old-course-context -> new-course-context mapping that
+     * remap_category_reference() needs. Verified live, 2026-07-19, as part
+     * of finding/fixing the single-activity gap this class otherwise covers.
+     */
+    public function test_whole_course_share_carries_the_question_bank(): void {
+        global $DB, $USER;
+        $this->resetAfterTest();
+
+        $this->setAdminUser();
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $coursecontext = \context_course::instance($course->id);
+        $qgen = $generator->get_plugin_generator('core_question');
+        $category = $qgen->create_question_category(['contextid' => $coursecontext->id]);
+        $question = $qgen->create_question('multichoice', 'one_of_four', ['category' => $category->id]);
+        $generator->create_module('quizquest', [
+            'course' => $course->id,
+            'questioncategoryid' => $category->id . ',' . $coursecontext->id,
+            'steps' => 3,
+        ]);
+
+        $bc = new backup_controller(
+            backup::TYPE_1COURSE,
+            $course->id,
+            backup::FORMAT_MOODLE,
+            backup::INTERACTIVE_NO,
+            backup::MODE_IMPORT,
+            $USER->id
+        );
+        $bc->get_plan()->get_setting('users')->set_status(\backup_setting::NOT_LOCKED);
+        $bc->get_plan()->get_setting('users')->set_value(false);
+        $backupid = $bc->get_backupid();
+        $bc->execute_plan();
+        $bc->destroy();
+
+        $newcourseid = \restore_dbops::create_new_course('Whole course restore target', 'wcrestoretgt_' . $course->id, 1);
+        $rc = new restore_controller(
+            $backupid,
+            $newcourseid,
+            backup::INTERACTIVE_NO,
+            backup::MODE_GENERAL,
+            $USER->id,
+            backup::TARGET_NEW_COURSE
+        );
+        $this->assertTrue($rc->execute_precheck());
+        $rc->execute_plan();
+        $rc->destroy();
+
+        $instances = get_fast_modinfo($newcourseid)->get_instances_of('quizquest');
+        $this->assertCount(1, $instances);
+        $newcm = reset($instances);
+        $new = $DB->get_record('quizquest', ['id' => $newcm->instance], '*', MUST_EXIST);
+
+        $this->assertNotEquals('', $new->questioncategoryid);
+        $newcategoryid = (int) explode(',', $new->questioncategoryid)[0];
+        $this->assertNotEquals($category->id, $newcategoryid);
+
+        $restoredquestion = $DB->get_record_sql(
+            "SELECT q.*
+               FROM {question} q
+               JOIN {question_versions} qv ON qv.questionid = q.id
+               JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+              WHERE qbe.questioncategoryid = ?",
+            [$newcategoryid],
+            MUST_EXIST
+        );
+        $this->assertNotEquals($question->id, $restoredquestion->id);
+        $this->assertEquals($question->name, $restoredquestion->name);
     }
 }

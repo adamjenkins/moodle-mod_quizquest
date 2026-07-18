@@ -40,10 +40,20 @@ class backup_quizquest_activity_task extends backup_activity_task {
     }
 
     /**
-     * Defines the single structure step.
+     * Defines the structure step, plus the question-bank inclusion steps
+     * every activity that references a question bank category (not just
+     * ones using the question engine, like quiz) must run — without these,
+     * annotate_ids('question_bank_entry', ...) in the structure step has
+     * nothing to act on: it only populates backup_ids_temp, and only
+     * backup_calculate_question_categories() turns that into the
+     * question_category/_complete/_partial records backup_final_task's
+     * backup_questions_structure_step actually reads (see mod_quiz's own
+     * backup_quiz_activity_task for the same three-step pattern).
      */
     protected function define_my_steps() {
         $this->add_step(new backup_quizquest_activity_structure_step('quizquest_structure', 'quizquest.xml'));
+        $this->add_step(new backup_calculate_question_categories('activity_question_categories'));
+        $this->add_step(new backup_delete_temp_questions('clean_temp_questions'));
     }
 
     /**

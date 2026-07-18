@@ -69,16 +69,57 @@ class backup_quizquest_activity_structure_step extends backup_activity_structure
             'feedbacktext', 'stepmsgbefore', 'stepmsgafter',
         ]);
 
+        // The activity's question bank category is referenced only by a raw
+        // id on the quizquest row, not through the standard
+        // question_references/question_set_references tables mod_quiz uses,
+        // so core's backup never discovers it on its own. Without this,
+        // annotate_ids('question', ...) on $response only ever ran when
+        // userinfo was included (student answer history) - the OER Exchange
+        // platform always backs up with userinfo=false, so every question in
+        // the configured category silently went missing from the archive on
+        // a single-activity share (found live, 2026-07-19: questions.xml was
+        // empty for a quizquest-only backup even though the same category
+        // backed up fine as part of a whole-course share). Core's backup
+        // categorizes/includes question bank content by annotated
+        // 'question_bank_entry' ids (backup_question_dbops::
+        // calculate_question_categories()), not by 'question' ids - that
+        // itemname is only used for restore-side remapping elsewhere in this
+        // plugin (see $response below). Annotate the category's current
+        // eligible bank entries unconditionally so they're included
+        // regardless of the userinfo setting.
+        $questionsused = new backup_nested_element('questionsused');
+        $questionused = new backup_nested_element('questionused', null, ['questionbankentryid']);
+        $questionsused->add_child($questionused);
+
         $quizquest->add_child($stepmessages);
         $stepmessages->add_child($stepmessage);
         $quizquest->add_child($genericresponses);
         $genericresponses->add_child($genericresponse);
+        $quizquest->add_child($questionsused);
         $quizquest->add_child($attempts);
         $attempts->add_child($attempt);
         $attempt->add_child($responses);
         $responses->add_child($response);
 
         $quizquest->set_source_table('quizquest', ['id' => backup::VAR_ACTIVITYID]);
+
+        global $DB;
+        $record = $DB->get_record(
+            'quizquest',
+            ['id' => $this->task->get_activityid()],
+            'questioncategoryid, includesubcategories'
+        );
+        $eligiblebankentries = $record
+            ? \mod_quizquest\question_picker::get_eligible_bank_entry_ids(
+                \mod_quizquest\question_picker::parse_category($record->questioncategoryid),
+                (bool) $record->includesubcategories
+            )
+            : [];
+        $questionused->set_source_array(array_map(
+            static fn (int $qbeid) => (object) ['questionbankentryid' => $qbeid],
+            $eligiblebankentries
+        ));
+        $questionused->annotate_ids('question_bank_entry', 'questionbankentryid');
         $stepmessage->set_source_table('quizquest_stepmessages', ['quizquest' => backup::VAR_PARENTID], 'step ASC');
         $genericresponse->set_source_table(
             'quizquest_genericresponses',
