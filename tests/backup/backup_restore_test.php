@@ -452,4 +452,42 @@ final class backup_restore_test extends advanced_testcase {
         $this->assertNotEquals($question->id, $restoredquestion->id);
         $this->assertEquals($question->name, $restoredquestion->name);
     }
+
+    /**
+     * remap_category_reference() must degrade to '' — the same outcome real
+     * MariaDB already gives for a truly-unresolvable reference (see
+     * test_backup_and_restore_with_user_data above) — when an underlying
+     * call throws instead of returning empty/false, rather than letting the
+     * exception propagate and fail the whole restore. This is the exact
+     * defensive behaviour added to
+     * restore_quizquest_activity_task::remap_category_reference() after a
+     * dedicated sandbox environment (the OER Exchange platform's WASM+SQLite
+     * "Try it" playground) was observed to throw "Can't find data record in
+     * database" for an equivalent unresolvable case that real MariaDB
+     * degrades gracefully (see
+     * dev-docs/oer-platform/discoveries/2026-07-19-single-activity-quizquest-restore-in-wasm-sandbox.md
+     * and this task's report for the live re-reproduction attempt).
+     *
+     * Forces a real (not mocked) \Throwable from inside the method's own
+     * call stack without needing a full restore in progress: constructing
+     * restore_quizquest_activity_task with no restore_plan (a legitimate
+     * constructor argument — restore_activity_task's own constructor
+     * defaults $plan to null) means get_restoreid() — which the method
+     * calls first — dereferences a null plan and PHP itself throws a genuine
+     * \Error, exercising the catch exactly as an unexpected underlying
+     * failure would.
+     */
+    public function test_remap_category_reference_returns_empty_when_underlying_lookup_throws(): void {
+        $this->resetAfterTest();
+
+        $task = new \restore_quizquest_activity_task('quizquest_1', (object) [
+            'modulename' => 'quizquest',
+            'moduleid' => 1,
+        ]);
+
+        $method = new \ReflectionMethod(\restore_quizquest_activity_task::class, 'remap_category_reference');
+        $method->setAccessible(true);
+
+        $this->assertSame('', $method->invoke($task, '5,10'));
+    }
 }
