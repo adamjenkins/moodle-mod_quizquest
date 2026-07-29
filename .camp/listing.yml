@@ -1,0 +1,22 @@
+# camp listing manifest — descriptive content for your plugin's page.
+# Edit freely and commit; camp ingests this file at each tagged release.
+# Schema: https://camp-registry.org/schema/listing.schema.json
+name: mod_quizquest
+summary: 'An activity that presents question bank questions as an interactive, escape-room style quest, answered in a chat-like dialogue.'
+description: |
+  Students answer questions drawn at random from a configured question bank
+  category in a chat-like dialogue, advancing a step for each correct answer
+  until the quest is complete. The interface is adapted from AI Escape Room
+  (`mod_aiescape`), with a question bank category taking the place of the AI.
+  Supports multiple choice (single answer) and short answer questions.
+labels:
+  # Required disclosure labels — pick all that apply (RFC §4.7):
+  #   fully-free | freemium | paid-service | external-account
+  #   donation-supported | commercial-support-available
+  - fully-free
+# screenshots:
+#   - path: .camp/screenshots/overview.png
+#     caption: Main view
+# links:
+#   docs: https://…
+#   issues: https://…
