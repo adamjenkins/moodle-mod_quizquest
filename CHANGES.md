@@ -1,7 +1,7 @@
 # Changes
 
-### 0.6.1 (2026071600) ###
+### 0.6.2 (2026080400) ###
 
-* Fixed "Display description on course page" having no effect: the activity
-  description now appears under the activity link on the course page when the
-  option is enabled.
+* The full GPL-3.0 licence text is now included as `LICENSE` in the repository
+  root. The plugin's licence is unchanged (GPL-3.0-or-later, as declared in
+  `composer.json`); the file was simply missing.
