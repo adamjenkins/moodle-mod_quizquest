@@ -1,5 +1,9 @@
 # Changes
 
+### Unreleased ###
+
+* Declare Moodle 5.3 support.
+
 ### 0.6.2 (2026080400) ###
 
 * The full GPL-3.0 licence text is now included as `LICENSE` in the repository

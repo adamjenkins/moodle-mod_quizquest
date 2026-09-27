@@ -2,6 +2,12 @@
 
 All notable changes to `mod_quizquest` are documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- Declare Moodle 5.3 support.
+
 ## [0.6.2] - 2026-08-04
 
 ### Added

@@ -24,20 +24,29 @@ jobs:
             # Per each branch's own version block in (public/)admin/environment.xml, the minimum PHP is
             # 8.2.0 for 500/501 and 8.3.0 for 502 — matches composer.json's stated floor for each branch.
             # PHP 8.2 is excluded only for 502. Re-verify against environment.xml before changing this.
-            echo 'matrix={"php":["8.2","8.3","8.4"],"moodle-branch":["MOODLE_500_STABLE","MOODLE_501_STABLE","MOODLE_502_STABLE"],"database":["pgsql","mariadb"],"exclude":[{"php":"8.2","moodle-branch":"MOODLE_502_STABLE"}]}' >> "$GITHUB_OUTPUT"
+            # Plus two NON-BLOCKING moodle.git main (= 5.3beta, moving target) jobs via include: its
+            # environment.xml 5.3 block needs PHP 8.3-8.4, PostgreSQL 17+, MariaDB 11.4.0+, so they
+            # carry their own service images; experimental=true makes the job continue-on-error.
+            echo 'matrix={"php":["8.2","8.3","8.4"],"moodle-branch":["MOODLE_500_STABLE","MOODLE_501_STABLE","MOODLE_502_STABLE"],"database":["pgsql","mariadb"],"exclude":[{"php":"8.2","moodle-branch":"MOODLE_502_STABLE"}],"include":[
+              {"php":"8.4","moodle-branch":"main","database":"pgsql","experimental":true,"pgsql-image":"postgres:17","mariadb-image":"mariadb:11.4"},
+              {"php":"8.3","moodle-branch":"main","database":"mariadb","experimental":true,"pgsql-image":"postgres:17","mariadb-image":"mariadb:11.4"}
+            ]}' | tr -d '\n' >> "$GITHUB_OUTPUT"
           fi
 
   test:
     needs: matrix-setup
     runs-on: ubuntu-latest
+    # moodle.git main rows are non-blocking (owner decision 2026-09-27).
+    continue-on-error: ${{ matrix.experimental == true }}
 
     services:
       postgres:
         # Per each branch's own version block in (public/)admin/environment.xml, the minimum
-        # PostgreSQL is 14 (500), 15 (501), 16 (502). One image is shared across the whole
-        # matrix, so it must satisfy the strictest of the three (502's 16). Re-verify against
-        # environment.xml before bumping this down.
-        image: postgres:16
+        # PostgreSQL is 14 (500), 15 (501), 16 (502). The stable rows share one image, so it
+        # must satisfy the strictest of the three (502's 16). Re-verify against
+        # environment.xml before bumping this down. moodle.git main (5.3) needs PostgreSQL 17
+        # (environment.xml 5.3 block), supplied by the main rows' matrix override.
+        image: ${{ matrix.pgsql-image || 'postgres:16' }}
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
@@ -50,7 +59,9 @@ jobs:
           --health-retries 3
 
       mariadb:
-        image: mariadb:10.11
+        # moodle.git main (5.3) needs MariaDB 11.4 (environment.xml 5.3 block), supplied by the
+        # main rows' matrix override; the stable branches keep the 10.11 pin.
+        image: ${{ matrix.mariadb-image || 'mariadb:10.11' }}
         env:
           MYSQL_USER: root
           MYSQL_ALLOW_EMPTY_PASSWORD: 'true'
@@ -59,7 +70,7 @@ jobs:
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping"
+          --health-cmd="mariadb-admin ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 3
@@ -145,7 +156,9 @@ jobs:
         run: moodle-plugin-ci mustache
 
       - name: Grunt
-        if: ${{ !cancelled() }}
+        # Not on main: committed amd/build bundles are built with the 5.2 toolchain and each
+        # branch minifies differently.
+        if: ${{ !cancelled() && matrix.moodle-branch != 'main' }}
         run: moodle-plugin-ci grunt
 
       - name: PHPUnit tests
