@@ -2,7 +2,7 @@
 
 All notable changes to `mod_quizquest` are documented in this file.
 
-## [Unreleased]
+## [0.6.3] - 2026-10-03
 
 ### Changed
 
