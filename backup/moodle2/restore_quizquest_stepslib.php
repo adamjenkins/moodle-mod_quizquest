@@ -94,6 +94,24 @@ class restore_quizquest_activity_structure_step extends restore_activity_structu
         // stepmsg_before/stepmsg_after repeated elements).
         $data->textbefore = clean_param((string) ($data->textbefore ?? ''), PARAM_TEXT);
         $data->textafter = clean_param((string) ($data->textafter ?? ''), PARAM_TEXT);
+
+        // Re-apply the form's step rules (mod_form.php validation(): digits only,
+        // no greater than the activity's steps, unique per activity). A crafted
+        // row that breaks them is skipped: a duplicate would otherwise hit the
+        // UNIQUE (quizquest, step) index and abort the whole restore.
+        $rawstep = trim((string) ($data->step ?? ''));
+        if ($rawstep === '' || !ctype_digit($rawstep)) {
+            return;
+        }
+        $data->step = (int) $rawstep;
+        $steps = (int) $DB->get_field('quizquest', 'steps', ['id' => $data->quizquest]);
+        if ($data->step > $steps) {
+            return;
+        }
+        if ($DB->record_exists('quizquest_stepmessages', ['quizquest' => $data->quizquest, 'step' => $data->step])) {
+            return;
+        }
+
         $DB->insert_record('quizquest_stepmessages', $data);
     }
 

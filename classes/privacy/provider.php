@@ -168,6 +168,9 @@ class provider implements
                     'timecreated' => transform::datetime($attempt->timecreated),
                     'timemodified' => transform::datetime($attempt->timemodified),
                     'timecompleted' => $attempt->timecompleted ? transform::datetime($attempt->timecompleted) : null,
+                    'ispreview' => transform::yesno($attempt->ispreview),
+                    'correctpoolqueue' => (string) ($attempt->correctpoolqueue ?? ''),
+                    'incorrectpoolqueue' => (string) ($attempt->incorrectpoolqueue ?? ''),
                     'responses' => array_values(array_map(static function ($response) {
                         return (object) [
                             'questionid' => $response->questionid,

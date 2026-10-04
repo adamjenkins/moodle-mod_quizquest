@@ -110,7 +110,9 @@ class restore_quizquest_activity_task extends restore_activity_task {
      *
      * Mapped (the bank was part of the backup) -> new ids. Unmapped on the same
      * site with the category still present -> kept as-is (e.g. duplicating an
-     * activity that draws from a bank elsewhere in the course). Otherwise ->
+     * activity that draws from a bank elsewhere in the course), but only when
+     * the restoring user may use that bank (restorer_can_use_bank()), because the
+     * id comes straight from the editable backup file. Otherwise ->
      * cleared, so the settings form forces the teacher to pick a new category.
      *
      * @param string $reference the restored raw reference
@@ -128,13 +130,16 @@ class restore_quizquest_activity_task extends restore_activity_task {
             $mapping = restore_dbops::get_backup_ids_record($this->get_restoreid(), 'question_category', $oldcategoryid);
             $categoryid = $mapping && !empty($mapping->newitemid) ? (int) $mapping->newitemid : 0;
 
+            // True when the id came straight from the .mbz rather than from this restore.
+            $keptfrombackup = false;
             if (!$categoryid && $this->is_samesite()) {
                 $categoryid = $oldcategoryid;
+                $keptfrombackup = true;
             }
 
             if ($categoryid) {
                 $category = $DB->get_record('question_categories', ['id' => $categoryid]);
-                if ($category) {
+                if ($category && (!$keptfrombackup || $this->restorer_can_use_bank((int) $category->contextid))) {
                     return $category->id . ',' . $category->contextid;
                 }
             }
@@ -161,6 +166,25 @@ class restore_quizquest_activity_task extends restore_activity_task {
             // zero-risk hardening of this method's own documented intent.
             return '';
         }
+    }
+
+    /**
+     * Whether the user running this restore may draw questions from a bank.
+     *
+     * A same-site reference that was not created by this restore comes straight
+     * from the backup file, which the restoring user can edit. Keep it only when
+     * that user could also pick the bank in the settings form, i.e. holds one of
+     * the capabilities question_bank_lister uses to offer a shared bank.
+     *
+     * @param int $contextid the question category's (bank's) context id
+     * @return bool
+     */
+    protected function restorer_can_use_bank(int $contextid): bool {
+        $context = \context::instance_by_id($contextid, IGNORE_MISSING);
+        if (!$context) {
+            return false;
+        }
+        return has_any_capability(\mod_quizquest\question_bank_lister::HAVING_CAP, $context, $this->get_userid());
     }
 
     /**

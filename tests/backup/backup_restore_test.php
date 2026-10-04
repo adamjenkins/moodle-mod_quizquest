@@ -256,7 +256,7 @@ final class backup_restore_test extends advanced_testcase {
         // restore_quizquest_activity_task::remap_category_reference()).
         $this->assertSame('', $new->questioncategoryid);
 
-        // remap_response_questionids() finds a 'question' backup-id mapping
+        // The remap_response_questionids() step finds a 'question' backup-id mapping
         // for the response's original question (core still tracks that
         // mapping even though the question's own category placement failed)
         // and follows it — landing on a distinct id, neither the original

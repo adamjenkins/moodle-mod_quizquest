@@ -27,7 +27,7 @@ namespace mod_quizquest;
  */
 class question_bank_lister {
     /** @var string[] Capabilities that grant use of a shared question bank's questions. */
-    protected const HAVING_CAP = ['moodle/question:useall', 'moodle/question:usemine'];
+    public const HAVING_CAP = ['moodle/question:useall', 'moodle/question:usemine'];
 
     /**
      * Returns the banks available to the current user, keyed by context id.

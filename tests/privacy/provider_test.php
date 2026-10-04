@@ -121,8 +121,14 @@ final class provider_test extends provider_testcase {
      * Export produces per-attempt data including responses.
      */
     public function test_export_user_data(): void {
+        global $DB;
         $this->resetAfterTest();
-        [$context, , $student1] = $this->create_setup();
+        [$context, $quizquest, $student1] = $this->create_setup();
+
+        // Give the attempt distinctive values for every declared attempt field.
+        $where = ['quizquest' => $quizquest->id, 'userid' => $student1->id];
+        $DB->set_field('quizquest_attempts', 'correctpoolqueue', '3,4', $where);
+        $DB->set_field('quizquest_attempts', 'incorrectpoolqueue', '7', $where);
 
         $this->export_context_data_for_user($student1->id, $context, 'mod_quizquest');
         $writer = writer::with_context($context);
@@ -131,6 +137,10 @@ final class provider_test extends provider_testcase {
         $attemptdata = $writer->get_data([get_string('attempt', 'mod_quizquest', 1)]);
         $this->assertEquals('completed', $attemptdata->status);
         $this->assertEquals(5, $attemptdata->stepstally);
+        // Every quizquest_attempts field declared in get_metadata() is exported.
+        $this->assertSame(get_string('no'), $attemptdata->ispreview);
+        $this->assertSame('3,4', $attemptdata->correctpoolqueue);
+        $this->assertSame('7', $attemptdata->incorrectpoolqueue);
         $this->assertCount(1, $attemptdata->responses);
         $this->assertEquals('Paris', $attemptdata->responses[0]->response);
         $this->assertEquals('Correct!', $attemptdata->responses[0]->feedbacktext);
