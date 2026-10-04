@@ -2,13 +2,17 @@
 
 All notable changes to `mod_quizquest` are documented in this file.
 
-## [Unreleased]
+## [0.6.4] - 2026-10-04
 
 ### Changed
 
 - The Japanese language pack (lang/ja) is no longer included: releases ship the English strings
   only, as the Moodle Plugins directory expects. Japanese is provided through Moodle's language
   packs.
+- A camp release workflow (`.github/workflows/camp-release.yml`) publishes each tagged release to
+  the camp registry (camp-registry.org).
+- CI tests `MOODLE_503_STABLE` (PHP 8.3–8.4, PostgreSQL 17, MariaDB 11.4) instead of Moodle
+  `main`, now that Moodle 5.3 is released.
 
 ### Fixed
 

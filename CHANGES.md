@@ -1,12 +1,15 @@
 # Changes
 
-### Unreleased ###
+### 0.6.4 (2026100400) ###
 
 ### Changed
 
 - The Japanese language pack (lang/ja) is no longer included: releases ship the English strings
   only, as the Moodle Plugins directory expects. Japanese is provided through Moodle's language
   packs.
+- Releases are now also published to the camp plugin registry (camp-registry.org).
+- Continuous integration now tests against the released Moodle 5.3 (MOODLE_503_STABLE) instead
+  of Moodle's development branch.
 
 ### Fixed
 
@@ -17,7 +20,3 @@
   longer aborts the restore: such rows are skipped, as the settings form would reject them.
 - The privacy export of an attempt now includes the preview flag and the generic-response queues,
   matching the data the privacy metadata declares.
-
-### 0.6.3 (2026100300) ###
-
-* Declare Moodle 5.3 support.
