@@ -2,6 +2,14 @@
 
 All notable changes to `mod_quizquest` are documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- The Japanese language pack (lang/ja) is no longer included: releases ship the English strings
+  only, as the Moodle Plugins directory expects. Japanese is provided through Moodle's language
+  packs.
+
 ## [0.6.3] - 2026-10-03
 
 ### Changed
