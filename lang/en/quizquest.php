@@ -56,6 +56,7 @@ $string['error:nopermission'] = 'You do not have permission to play this activit
 $string['error:noquestions'] = 'No suitable questions were found in the configured question bank category.';
 $string['error:noquestionsincategory'] = 'The selected category contains no multiple choice (single answer) or short answer questions.';
 $string['error:notopenyet'] = 'This activity opens on {$a}.';
+$string['error:requestinprogress'] = 'Another request for this attempt is still being processed. Please try again in a moment.';
 $string['error:stepmessageduplicate'] = 'Only one message can be configured per step.';
 $string['error:stepmessageempty'] = 'Enter text before and/or after feedback, or remove this step number.';
 $string['error:stepmessagestepinvalid'] = 'Step must be a whole number between 0 and the configured "Steps to complete".';

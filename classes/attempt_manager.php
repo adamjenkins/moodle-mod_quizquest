@@ -68,6 +68,35 @@ class attempt_manager {
     }
 
     /**
+     * Seconds to wait for another request from the same user to finish.
+     */
+    public const LOCK_TIMEOUT = 10;
+
+    /**
+     * Takes the per-user, per-activity lock that serialises attempt changes.
+     *
+     * start_attempt and submit_answer read and then write the attempt and its
+     * pending turn. Holding this lock across that read-modify-write stops two
+     * parallel requests from the same user from both creating an attempt (going
+     * past maxattempts), both answering one pending turn (probing every option of
+     * one question), or losing a tally update. The lock is not re-entrant: take it
+     * once per request and release it in a finally block.
+     *
+     * @param int $quizquestid Activity instance id
+     * @param int $userid
+     * @return \core\lock\lock
+     * @throws \moodle_exception when the lock cannot be taken in time
+     */
+    public static function get_user_lock(int $quizquestid, int $userid): \core\lock\lock {
+        $factory = \core\lock\lock_config::get_lock_factory('mod_quizquest');
+        $lock = $factory->get_lock('attempt_' . $quizquestid . '_' . $userid, self::LOCK_TIMEOUT);
+        if (!$lock) {
+            throw new \moodle_exception('error:requestinprogress', 'mod_quizquest');
+        }
+        return $lock;
+    }
+
+    /**
      * Returns the current in-progress attempt for a user, or null if none exists.
      *
      * @param int $quizquest Activity instance id

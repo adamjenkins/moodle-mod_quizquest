@@ -61,22 +61,30 @@ class quit_attempt extends external_api {
         require_capability('mod/quizquest:play', $context);
 
         $quizquest = $DB->get_record('quizquest', ['id' => $cm->instance], '*', MUST_EXIST);
-        $attempt   = $DB->get_record(
-            'quizquest_attempts',
-            ['id' => $attemptid, 'userid' => $USER->id, 'quizquest' => $quizquest->id],
-            '*',
-            MUST_EXIST
-        );
 
-        if ($attempt->status !== 'inprogress') {
-            throw new \moodle_exception('error:invalidattempt', 'mod_quizquest');
+        // Serialise with a parallel submit_answer, so an attempt that has just been
+        // completed is not then abandoned (or abandoned twice).
+        $lock = attempt_manager::get_user_lock((int) $quizquest->id, (int) $USER->id);
+        try {
+            $attempt = $DB->get_record(
+                'quizquest_attempts',
+                ['id' => $attemptid, 'userid' => $USER->id, 'quizquest' => $quizquest->id],
+                '*',
+                MUST_EXIST
+            );
+
+            if ($attempt->status !== 'inprogress') {
+                throw new \moodle_exception('error:invalidattempt', 'mod_quizquest');
+            }
+
+            $course = get_course($cm->course);
+            $cminfo = get_fast_modinfo($course)->get_cm($cm->id);
+
+            $manager = new attempt_manager();
+            $grade   = $manager->abandon_attempt($attempt, $quizquest, $course, $cminfo);
+        } finally {
+            $lock->release();
         }
-
-        $course = get_course($cm->course);
-        $cminfo = get_fast_modinfo($course)->get_cm($cm->id);
-
-        $manager = new attempt_manager();
-        $grade   = $manager->abandon_attempt($attempt, $quizquest, $course, $cminfo);
 
         return [
             'abandoned'  => true,

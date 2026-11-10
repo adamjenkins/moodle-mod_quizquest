@@ -35,6 +35,7 @@ require_once($CFG->dirroot . '/mod/quizquest/lib.php');
 #[\PHPUnit\Framework\Attributes\CoversFunction('quizquest_reset_userdata')]
 #[\PHPUnit\Framework\Attributes\CoversFunction('quizquest_update_events')]
 #[\PHPUnit\Framework\Attributes\CoversFunction('quizquest_delete_instance')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('quizquest_is_raster_image')]
 final class lib_test extends advanced_testcase {
     /**
      * Creates a course, student and quizquest.
@@ -241,5 +242,32 @@ final class lib_test extends advanced_testcase {
         $cm = get_coursemodule_from_instance('quizquest', $quizquest->id);
         $info = quizquest_get_coursemodule_info($cm);
         $this->assertEmpty($info->content);
+    }
+
+    /**
+     * Only raster images count as safe to serve inline from the progressimage area;
+     * SVG and HTML files are sent as downloads by quizquest_pluginfile().
+     */
+    public function test_is_raster_image(): void {
+        $this->resetAfterTest();
+        $context = \context_system::instance();
+        $fs = get_file_storage();
+        $record = [
+            'contextid' => $context->id, 'component' => 'mod_quizquest', 'filearea' => 'progressimage',
+            'itemid' => 0, 'filepath' => '/',
+        ];
+
+        $cases = [
+            'stage.png' => true,
+            'stage.jpg' => true,
+            'stage.gif' => true,
+            'stage.webp' => true,
+            'stage.svg' => false,
+            'stage.html' => false,
+        ];
+        foreach ($cases as $filename => $expected) {
+            $file = $fs->create_file_from_string($record + ['filename' => $filename], 'content of ' . $filename);
+            $this->assertSame($expected, quizquest_is_raster_image($file), $filename);
+        }
     }
 }

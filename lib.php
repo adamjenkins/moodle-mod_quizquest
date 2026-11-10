@@ -422,7 +422,7 @@ function quizquest_save_progress_images(stdClass $data): void {
         'subdirs' => 0,
         'maxfiles' => QUIZQUEST_MAX_PROGRESS_IMAGES,
         'maxbytes' => get_course($data->course)->maxbytes,
-        'accepted_types' => ['image'],
+        'accepted_types' => ['optimised_image'],
     ]);
 }
 
@@ -524,6 +524,16 @@ function quizquest_get_progress_image_urls(context_module $context): array {
 }
 
 /**
+ * Whether a stored file is a raster image that is safe to serve inline.
+ *
+ * @param stored_file $file
+ * @return bool
+ */
+function quizquest_is_raster_image(stored_file $file): bool {
+    return in_array($file->get_mimetype(), ['image/png', 'image/jpeg', 'image/gif', 'image/webp'], true);
+}
+
+/**
  * Serve files from the quizquest file areas.
  *
  * @param stdClass $course course object
@@ -564,7 +574,11 @@ function quizquest_pluginfile(
         return false;
     }
 
-    send_stored_file($file, null, 0, $forcedownload, $options);
+    // Only raster images are shown inline. The form restricts uploads to them in
+    // the browser only, and a restored backup can carry any file, so anything
+    // else (an SVG or HTML file, say) is sent as a download, never rendered on
+    // the site origin.
+    send_stored_file($file, null, 0, $forcedownload || !quizquest_is_raster_image($file), $options);
     return true;
 }
 

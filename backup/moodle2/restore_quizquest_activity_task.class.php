@@ -188,12 +188,36 @@ class restore_quizquest_activity_task extends restore_activity_task {
     }
 
     /**
+     * Returns the context id of the question bank holding a question.
+     *
+     * @param int $questionid the question id
+     * @return int the bank (question category) context id, or 0 when the question does not exist
+     */
+    protected function get_question_bank_contextid(int $questionid): int {
+        global $DB;
+
+        $contextid = $DB->get_field_sql(
+            'SELECT qc.contextid
+               FROM {question} q
+               JOIN {question_versions} qv ON qv.questionid = q.id
+               JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+               JOIN {question_categories} qc ON qc.id = qbe.questioncategoryid
+              WHERE q.id = ?',
+            [$questionid]
+        );
+        return (int) $contextid;
+    }
+
+    /**
      * Remaps quizquest_responses.questionid for all restored attempts.
      *
      * Mapped -> new question id. Unmapped on the same site with the question
-     * still present -> kept. Otherwise -> 0, so the stale id can never collide
-     * with an unrelated question on this site (history shows the question as
-     * no longer available).
+     * still present -> kept, but only when the restoring user may use the bank
+     * the question lives in (restorer_can_use_bank()), because the id comes
+     * straight from the editable backup file and a pending turn would otherwise
+     * serve any question on the site back to the restorer. Otherwise -> 0, so
+     * the stale id can never collide with an unrelated question on this site
+     * (history shows the question as no longer available).
      *
      * @param int $quizquestid the restored activity id
      */
@@ -212,8 +236,11 @@ class restore_quizquest_activity_task extends restore_activity_task {
             $mapping = restore_dbops::get_backup_ids_record($this->get_restoreid(), 'question', $oldid);
             $newid = $mapping && !empty($mapping->newitemid) ? (int) $mapping->newitemid : 0;
 
-            if (!$newid && $this->is_samesite() && $DB->record_exists('question', ['id' => $oldid])) {
-                $newid = (int) $oldid;
+            if (!$newid && $this->is_samesite()) {
+                $bankcontextid = $this->get_question_bank_contextid((int) $oldid);
+                if ($bankcontextid && $this->restorer_can_use_bank($bankcontextid)) {
+                    $newid = (int) $oldid;
+                }
             }
 
             if ($newid == $oldid) {

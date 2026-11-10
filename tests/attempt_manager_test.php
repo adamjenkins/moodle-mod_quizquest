@@ -127,6 +127,39 @@ final class attempt_manager_test extends advanced_testcase {
     }
 
     /**
+     * The per-user lock is exclusive while held, separate per user and activity,
+     * and free again once released.
+     */
+    public function test_get_user_lock(): void {
+        global $CFG;
+        $this->resetAfterTest();
+        // The MySQL and Postgres factories are re-entrant within one DB session,
+        // so a single PHPUnit process could take the same lock twice. The
+        // lock-table factory is not, which is what two web requests see.
+        $CFG->lock_factory = '\core\lock\db_record_lock_factory';
+        $factory = \core\lock\lock_config::get_lock_factory('mod_quizquest');
+
+        $lock = attempt_manager::get_user_lock(5, 7);
+        $this->assertInstanceOf(\core\lock\lock::class, $lock);
+
+        // A parallel request for the same user and activity cannot take it.
+        $this->assertFalse($factory->get_lock('attempt_5_7', 0));
+
+        // Another user, or another activity, is not blocked.
+        $other = $factory->get_lock('attempt_5_8', 0);
+        $this->assertNotFalse($other);
+        $other->release();
+        $other = $factory->get_lock('attempt_6_7', 0);
+        $this->assertNotFalse($other);
+        $other->release();
+
+        $lock->release();
+        $again = $factory->get_lock('attempt_5_7', 0);
+        $this->assertNotFalse($again);
+        $again->release();
+    }
+
+    /**
      * The tally never drops below zero.
      */
     public function test_update_tally_floor(): void {

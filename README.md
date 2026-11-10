@@ -23,6 +23,18 @@ Random selection prefers questions the student has never been asked in any of th
 
 Answer feedback stored on the matched question answer is shown in the dialogue; otherwise a generic correct/incorrect message is used.
 
+### Choosing the question bank
+
+The settings form has two linked menus. **Question bank** lists every question bank activity in the course, plus any banks shared to other courses or the whole site that you have permission to use. Choosing a bank refreshes the **Question category** menu with that bank's categories (no page reload needed; without JavaScript the categories of the selected bank are shown when the form loads). **Include questions from subcategories** also draws questions from every category beneath the chosen one.
+
+### Step narrative text
+
+Teachers can add story text tied to the student's progress. Each **step message** has a step number and optional text "before feedback" and "after feedback". When a correct answer brings the tally up to that step, the before-text appears as its own message just before the correct/incorrect feedback and the after-text just after it. Step 0 is the opening narrative: both texts are shown before the first question. Only one message per step is allowed, and the step can be no higher than **Steps to complete**.
+
+### Generic response pools
+
+Optional pools of **correct-answer responses** and **incorrect-answer responses** replace or accompany the default "Correct!"/"Not quite" messages. Each turn a random response the student has not yet seen in this attempt is drawn from the relevant pool; once every response has been shown, the pool reshuffles. **Display generic responses** decides when a pool response is shown relative to the matched answer's own feedback: only when that feedback is absent (the default), never, before it, or after it.
+
 ### Progress images
 
 Teachers can upload multiple images that display alongside the dialogue. With N images (ordered by file name), the first shows at the start and each subsequent image appears as the student completes an equal share of the required steps — reaching the last image at the end of the quest.
@@ -55,14 +67,19 @@ A fullscreen toggle button in the top-right corner of the game interface lets st
 | Setting | Description |
 |---------|-------------|
 | Open/Close the quest | Optional open and close dates (shown on the course page like the quiz module); attempts still open at the close date are automatically abandoned |
-| Question category | The question bank category questions are drawn from |
+| Question bank | The question bank activity (in this course, or shared to it) to draw questions from |
+| Question category | The category in that bank that questions are drawn from |
+| Include questions from subcategories | Also draw questions from every subcategory of the chosen category |
 | Steps to complete | Number of correct answers required to complete (1–100) |
 | Maximum attempts | How many attempts a student may make |
 | Wrong answers subtract a step | Optional penalty; the tally never drops below zero |
 | Show progress | Display the step progress bar to students during play |
 | Allow student review | Let students re-read completed attempts |
 | Partial score on quit | Award proportional grade when a student quits early |
-| Progress images | Images displayed alongside the dialogue, switching with progress |
+| Progress images | Raster images (PNG, JPEG, GIF, WebP) displayed alongside the dialogue, switching with progress |
+| Step narrative text | Story text shown at given steps, before and/or after that turn's feedback (step 0 opens the quest) |
+| Generic responses | Pools of correct-answer and incorrect-answer responses, shuffled without repeats |
+| Display generic responses | When a pool response is shown: only when the answer has no feedback, never, before it, or after it |
 
 ## Privacy
 

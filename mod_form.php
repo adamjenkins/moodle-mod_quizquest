@@ -159,6 +159,8 @@ class mod_quizquest_mod_form extends moodleform_mod {
             // these files are served inline (send_stored_file with $forcedownload = false)
             // to anyone with mod/quizquest:view, so allowing svg here would let a teacher
             // upload a stored-XSS payload that runs when a student opens the file URL.
+            // This restriction is only enforced in the browser, so quizquest_pluginfile()
+            // also sends any non-raster file in this area as a download.
             'accepted_types' => ['optimised_image'],
         ]);
         $mform->addHelpButton('progressimages', 'progressimages', 'mod_quizquest');

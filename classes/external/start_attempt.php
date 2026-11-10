@@ -77,12 +77,19 @@ class start_attempt extends external_api {
             }
         }
 
-        $attempt   = $manager->get_or_create_attempt($quizquest, $USER->id, $ispreview);
+        // Serialise with any parallel request from this user, so two starts cannot
+        // both create an attempt (going past maxattempts) or both serve a turn.
+        $lock = attempt_manager::get_user_lock((int) $quizquest->id, (int) $USER->id);
+        try {
+            $attempt = $manager->get_or_create_attempt($quizquest, $USER->id, $ispreview);
 
-        $pending = $manager->get_pending_response($attempt->id);
-        $question = $pending
-            ? question_picker::get_question_payload((int) $pending->questionid)
-            : $manager->serve_question($quizquest, $attempt);
+            $pending = $manager->get_pending_response($attempt->id);
+            $question = $pending
+                ? question_picker::get_question_payload((int) $pending->questionid)
+                : $manager->serve_question($quizquest, $attempt);
+        } finally {
+            $lock->release();
+        }
 
         $messages = $manager->build_history($attempt->id);
 

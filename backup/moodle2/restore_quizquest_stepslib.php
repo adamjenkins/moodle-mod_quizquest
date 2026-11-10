@@ -72,6 +72,26 @@ class restore_quizquest_activity_structure_step extends restore_activity_structu
         // 'name' element) so a crafted backup can't smuggle in markup that a
         // future, less-careful output path might fail to escape.
         $data->name = clean_param((string) ($data->name ?? ''), PARAM_TEXT);
+        // Re-apply the settings form's limits too (mod_form.php validation() and
+        // its select/yes-no elements): steps 1..100, grade >= 0 (no scales),
+        // maxattempts -1 or 1..10, a known generic-response display mode, and
+        // 0/1 flags.
+        $data->steps = min(100, max(1, (int) ($data->steps ?? 10)));
+        $data->grade = max(0, (int) ($data->grade ?? 100));
+        $maxattempts = (int) ($data->maxattempts ?? -1);
+        $data->maxattempts = ($maxattempts === -1 || ($maxattempts >= 1 && $maxattempts <= 10)) ? $maxattempts : -1;
+        $display = (int) ($data->genericresponsedisplay ?? \mod_quizquest\message_bank::DISPLAY_WHEN_NO_FEEDBACK);
+        $displaymodes = [
+            \mod_quizquest\message_bank::DISPLAY_WHEN_NO_FEEDBACK,
+            \mod_quizquest\message_bank::DISPLAY_NEVER,
+            \mod_quizquest\message_bank::DISPLAY_BEFORE,
+            \mod_quizquest\message_bank::DISPLAY_AFTER,
+        ];
+        $data->genericresponsedisplay = in_array($display, $displaymodes, true)
+            ? $display : \mod_quizquest\message_bank::DISPLAY_WHEN_NO_FEEDBACK;
+        foreach (['includesubcategories', 'showprogress', 'allowstudentreview', 'partialscoreonquit', 'wrongpenalty'] as $flag) {
+            $data->$flag = empty($data->$flag) ? 0 : 1;
+        }
         // The questioncategoryid reference is restored raw here; the task's
         // after_restore() remaps it once every activity (incl. qbanks) is in.
 
@@ -147,6 +167,15 @@ class restore_quizquest_activity_structure_step extends restore_activity_structu
         // Shuffle queues reference source-site generic-response row ids; start fresh.
         $data->correctpoolqueue = '';
         $data->incorrectpoolqueue = '';
+        // A .mbz is attacker-controlled input: only the statuses the plugin
+        // itself writes are accepted (an unknown one is restored as abandoned),
+        // the tally stays within 0..steps, and ispreview is a 0/1 flag.
+        if (!in_array((string) ($data->status ?? ''), ['inprogress', 'completed', 'abandoned'], true)) {
+            $data->status = 'abandoned';
+        }
+        $steps = (int) $DB->get_field('quizquest', 'steps', ['id' => $data->quizquest]);
+        $data->stepstally = min($steps, max(0, (int) ($data->stepstally ?? 0)));
+        $data->ispreview = empty($data->ispreview) ? 0 : 1;
 
         $newitemid = $DB->insert_record('quizquest_attempts', $data);
         $this->set_mapping('quizquest_attempt', $oldid, $newitemid);

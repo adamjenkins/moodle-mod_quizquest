@@ -75,6 +75,37 @@ class submit_answer extends external_api {
         require_capability('mod/quizquest:play', $context);
 
         $quizquest = $DB->get_record('quizquest', ['id' => $cm->instance], '*', MUST_EXIST);
+
+        // Serialise with any parallel request from this user: the attempt and its
+        // pending turn are read only once the lock is held, so two requests can
+        // never both answer the same turn or overwrite each other's tally.
+        $lock = attempt_manager::get_user_lock((int) $quizquest->id, (int) $USER->id);
+        try {
+            return self::process_answer($cm, $quizquest, $attemptid, $answerid, $answertext);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Evaluates the answer against the pending turn. Must run under attempt_manager::get_user_lock().
+     *
+     * @param \stdClass|\cm_info $cm the course module
+     * @param \stdClass $quizquest the activity record
+     * @param int $attemptid
+     * @param int $answerid
+     * @param string $answertext
+     * @return array
+     */
+    protected static function process_answer(
+        $cm,
+        \stdClass $quizquest,
+        int $attemptid,
+        int $answerid,
+        string $answertext
+    ): array {
+        global $DB, $USER;
+
         $attempt   = $DB->get_record(
             'quizquest_attempts',
             ['id' => $attemptid, 'userid' => $USER->id, 'quizquest' => $quizquest->id],
