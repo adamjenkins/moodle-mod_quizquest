@@ -2,6 +2,51 @@
 
 All notable changes to `mod_quizquest` are documented in this file.
 
+## [0.6.5] - 2026-11-10
+
+### Added
+
+- `attempt_manager::get_user_lock()` takes a per-user, per-activity lock
+  (`attempt_<quizquestid>_<userid>`, lock factory `mod_quizquest`, timeout
+  `attempt_manager::LOCK_TIMEOUT` = 10 seconds) and throws `error:requestinprogress` (new string)
+  when it cannot be taken in time.
+- `quizquest_is_raster_image()` in `lib.php` (PNG, JPEG, GIF, WebP by MIME type).
+- README sections on the question bank picker, step narrative text and generic response pools,
+  and the matching rows in the settings table.
+
+### Changed
+
+- `quizquest_save_progress_images()` saves the draft area with `accepted_types` `optimised_image`,
+  matching the form element, instead of `image`.
+
+### Fixed
+
+- `start_attempt`, `submit_answer` and `quit_attempt` run their read-modify-write of the attempt and
+  its pending turn under `get_user_lock()` (released in a `finally` block); `submit_answer`'s body
+  moves into `process_answer()`. Parallel requests from one user can no longer create attempts
+  past `maxattempts`, answer one pending turn twice, lose a tally update, or abandon an attempt
+  that has just been completed.
+- The restore structure step clamps activity settings to the form's limits: `steps` 1–100, `grade`
+  at least 0, `maxattempts` -1 or 1–10 (otherwise -1), `genericresponsedisplay` one of the
+  `message_bank::DISPLAY_*` modes (otherwise `DISPLAY_WHEN_NO_FEEDBACK`), and
+  `includesubcategories`, `showprogress`, `allowstudentreview`, `partialscoreonquit` and
+  `wrongpenalty` 0 or 1. Attempt `status` must be `inprogress`, `completed` or `abandoned`
+  (otherwise `abandoned`), `stepstally` is clamped to 0..`steps`, and `ispreview` is 0 or 1.
+
+### Security
+
+- On a same-site restore, an unmapped `quizquest_responses.questionid` is kept only when the
+  restoring user may use the bank the question lives in (new
+  `restore_quizquest_activity_task::get_question_bank_contextid()` with the existing
+  `restorer_can_use_bank()`); otherwise it is set to 0. Previously any existing question id from
+  the backup file was kept, so a pending turn could serve any question on the site.
+- `quizquest_pluginfile()` forces a download for any file that is not a raster image, since the
+  form's `optimised_image` restriction is applied in the browser and a restored backup can carry
+  any file.
+
+New PHPUnit tests cover the lock, `quizquest_is_raster_image()` and restore of crafted settings,
+attempts and response question ids (`tests/backup/restore_hostile_input_test.php`).
+
 ## [0.6.4] - 2026-10-04
 
 ### Changed
